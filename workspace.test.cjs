@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
-const {pathToFileURL}=require('node:url');
+const {launchBrowser}=require('./browser-test-helper.cjs');
 async function main(){
   const model=vm.createContext({});for(const file of ['fields.js','workspace-model.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,file),'utf8'),model);
   assert.equal(Object.hasOwn(model.newProduct({name:'Old',upc:'123',onlineDescription:'Old description',medBasePrice:'30'}),'upc'),false);
@@ -8,14 +8,15 @@ async function main(){
   assert.equal(model.mergeVendor([],' Vendor ',['Brand','Brand',' Second '])[0].brands.length,2);
   assert.throws(()=>model.mergeVendor([],'',[]));
   assert.equal(model.productDiff({name:'New'},{name:'Old'}).find(d=>d.key==='name').state,'changed');
-  const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser=await chromium.launch({headless:true,channel:process.env.TEST_BROWSER_CHANNEL || 'chrome'});
+  const {browser,pageURL}=await launchBrowser();
   try{
     const context=await browser.newContext({viewport:{width:1440,height:1100}}),errors=[],windows=[];
     const shared={category:'Flower (New Category)',medBasePrice:'30',cost:'12',gramsConcentration:'3.5',vendor:'Metro Distribution',brand:'',copyToLocation:true};
     const storage={options:{vendor:['Learned Supplier'],brand:['Brand One','Brand Two','Learned Brand']},'workspaceLaunch:preview':{vendor:'Metro Distribution',brands:['Brand One','Brand Two'],shared}};
     await context.exposeBinding('readStore',(_,key)=>({[key]:storage[key]}));
+    let templateWriteGate;
     await context.exposeBinding('writeStore',async(_,data)=>{
+      if(data.templates && templateWriteGate) {const gate=templateWriteGate;templateWriteGate=null;gate.started();await gate.promise;}
       const changes=Object.fromEntries(Object.entries(data).map(([key,value])=>[key,{oldValue:storage[key],newValue:value}]));Object.assign(storage,data);
       await Promise.all(context.pages().flatMap(p=>p.frames()).map(frame=>frame.evaluate(changes=>{for(const listener of window.testListeners || [])listener(changes,'local');},changes).catch(()=>{})));
     });
@@ -26,7 +27,7 @@ async function main(){
       Object.defineProperty(navigator,'clipboard',{value:{writeText:async text=>{window.copied=text;}}});
     });
     const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
-    await page.goto(pathToFileURL(path.join(__dirname,'workspace.html')).href+'?launch=preview');
+    await page.goto(pageURL('workspace.html')+'?launch=preview');
     await page.waitForFunction(()=>document.querySelectorAll('.entry-card').length===2);
     const first=page.locator('.entry-card').nth(0),second=page.locator('.entry-card').nth(1);
     await first.locator('[data-field="name"]').fill('Brand One | Runtz | 3.5g (H)');
@@ -52,10 +53,23 @@ async function main(){
     await first.getByRole('button',{name:'Changes',exact:true}).click();assert(await first.locator('.diff-table').innerText().then(t=>t.includes('Changed')&&t.includes('Kept')&&t.includes('Blank')));
     await page.locator('#saveProducts').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('Saved 2 templates'));
     assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].onlineDescription,'Reviewed Runtz description.');assert.equal(storage.templates['Brand Two | Grape Gas | 3.5g (I)'].onlineDescription,'');
+    // Typing while a storage write is pending must not restore the older snapshot.
+    await first.locator('[data-field="cost"]').fill('16');
+    let releaseWrite, writeStarted;
+    const started=new Promise(resolve=>{writeStarted=resolve;});
+    templateWriteGate={started:writeStarted,promise:new Promise(resolve=>{releaseWrite=resolve;})};
+    await page.locator('#saveProducts').click();await started;
+    await first.locator('[data-field="cost"]').fill('17');releaseWrite();
+    await page.waitForFunction(()=>!document.getElementById('saveProducts').disabled);
+    assert.equal(await first.locator('[data-field="cost"]').inputValue(),'17');
+    assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].cost,'16');
+    assert.equal(await first.locator('[data-badge]').textContent(),'Unsaved');
+    await page.locator('#saveProducts').click();await page.waitForFunction(()=>!document.getElementById('saveProducts').disabled);
+    assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].cost,'17');
     fs.mkdirSync(path.join(__dirname,'previews'),{recursive:true});await first.getByRole('button',{name:'Online description',exact:true}).click();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(__dirname,'previews/bulk-workspace.png')});
     await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.entry-card').length===2);
     assert.equal(await page.locator('.entry-card').first().locator('[data-field="medBasePrice"]').inputValue(),'40');
-    await page.locator('.entry-card').first().locator('[data-field="cost"]').fill('17');
+    await page.locator('.entry-card').first().locator('[data-field="cost"]').fill('18');
     await page.evaluate(async()=>{const {templates}=await chrome.storage.local.get('templates');templates['Brand One | Runtz | 3.5g (H)'].cost='99';await chrome.storage.local.set({templates});});
     await page.locator('#saveProducts').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.includes('changed in another window'));
     assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].cost,'99');
@@ -73,6 +87,9 @@ async function main(){
     await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('Saved Metro Distribution') || document.getElementById('workspaceStatus').classList.contains('error'));
     assert.equal(await page.locator('#workspaceStatus').getAttribute('class'),'');
     assert.equal(storage.brandDirectory[0].brands.length,2);
+    await page.evaluate(async()=>{const {brandDirectory}=await chrome.storage.local.get('brandDirectory');await chrome.storage.local.set({brandDirectory:[{vendor:'Aardvark',brands:['Other brand']},...brandDirectory]});});
+    assert.deepEqual(await first.locator('[data-field="brand"]').evaluate(input=>[...document.getElementById(input.getAttribute('list')).options].map(option=>option.value)),['Brand One','Brand Two']);
+    await page.evaluate(async()=>{const {brandDirectory}=await chrome.storage.local.get('brandDirectory');await chrome.storage.local.set({brandDirectory:brandDirectory.filter(entry=>entry.vendor!=='Aardvark')});});
     await page.locator('#newVendor').click();assert.equal(await page.locator('#selectedBrands button').count(),0);await page.locator('#vendorName').fill('Metro Distribution');await page.locator('#vendorName').press('Tab');assert.equal(await page.locator('#selectedBrands button').count(),2);
     await page.screenshot({path:path.join(__dirname,'previews/brand-directory.png'),fullPage:true});
     await page.locator('#workspaceTheme').selectOption('forest-mint');await page.locator('#vendorBrands').fill('Brand');await page.locator('.directory-grid>.card').nth(1).screenshot({path:path.join(__dirname,'previews/brand-multiselect.png')});await page.locator('#vendorBrands').press('Escape');
@@ -83,7 +100,7 @@ async function main(){
     assert.equal(Object.keys(storage.templates).length,countBefore);
     await launched.locator('[data-field="name"]').fill('Brand Two | Grape Gas | 3.5g (I)');await launched.locator('#saveProducts').click();await launched.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.includes('already exists'));
     assert.equal(Object.keys(storage.templates).length,countBefore);
-    const popup=await context.newPage();popup.on('pageerror',error=>errors.push(error.message));await popup.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);await popup.waitForSelector('#f_name');
+    const popup=await context.newPage();popup.on('pageerror',error=>errors.push(error.message));await popup.goto(pageURL('popup.html'));await popup.waitForSelector('#f_name');
     await popup.locator('#f_vendor').fill('Metro Distribution');assert.equal(await popup.locator('#directoryBrandHints option').count(),2);
     await popup.getByRole('button',{name:'Brand directory',exact:true}).click();const directoryFrame=popup.frameLocator('#directoryWorkspace');await directoryFrame.locator('#vendorList button').waitFor();
     await popup.getByRole('button',{name:'Templates',exact:true}).click();
@@ -98,8 +115,37 @@ async function main(){
     await popup.locator('#importFile').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});await popup.waitForFunction(()=>document.getElementById('transferStatus').textContent.startsWith('Imported 1 templates'));
     assert.equal(storage.brandDirectory[0].brands.length,3);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    // A batch should refresh aggregate metrics once, preserving their DOM nodes.
+    storage['productWorkspace:performance']={rows:[]};
+    const batchPage=await context.newPage();await batchPage.goto(pageURL('workspace.html')+'?batch=performance');
+    await batchPage.waitForFunction(()=>initialized);
+    await batchPage.evaluate(()=>{window.originalMetric=document.querySelector('#metrics strong');window.metricUpdates=0;const original=updateMetrics;updateMetrics=()=>{window.metricUpdates++;original();};});
+    await batchPage.locator('#quickNames').fill(Array.from({length:40},(_,index)=>`Product ${index}`).join('\n'));
+    await batchPage.locator('#addNames').click();
+    assert.equal(await batchPage.locator('.entry-card').count(),40);
+    assert.equal(await batchPage.evaluate(()=>window.metricUpdates),1);
+    assert.equal(await batchPage.evaluate(()=>window.originalMetric===document.querySelector('#metrics strong')),true);
+    // Overlapping blur/debounce flushes must not let an older draft win.
+    await batchPage.evaluate(()=>{
+      window.draftWrites=[];
+      const originalSet=chrome.storage.local.set;
+      chrome.storage.local.set=async data=>{
+        if(Object.hasOwn(data,draftKey)) await new Promise(resolve=>window.draftWrites.push({release:resolve}));
+        return originalSet(data);
+      };
+      rows.values().next().value.values.cost='50';scheduleSave();window.firstDraft=persistDraft();
+    });
+    await batchPage.waitForFunction(()=>window.draftWrites.length===1);
+    await batchPage.evaluate(()=>{rows.values().next().value.values.cost='51';scheduleSave();window.secondDraft=persistDraft();});
+    assert.equal(await batchPage.evaluate(()=>window.draftWrites.length),1);
+    await batchPage.evaluate(()=>window.draftWrites[0].release());
+    await batchPage.waitForFunction(()=>window.draftWrites.length===2);
+    await batchPage.evaluate(async()=>{window.draftWrites[1].release();await Promise.all([window.firstDraft,window.secondDraft]);});
+    assert.equal(storage['productWorkspace:performance'].rows[0].values.cost,'51');
+    await batchPage.evaluate(()=>persistDraft());
+    assert.equal(await batchPage.evaluate(()=>window.draftWrites.length),2);
     assert.deepEqual(errors,[]);
-    console.log('Passed workspace multi-entry edits, selected-only application, per-product descriptions, comparisons, atomic save/reload/conflicts, required-name/collision guards, directory hints/export/import, brand window launch and immediate batch review.');
+    console.log('Passed workspace edits, comparisons, save/reload/conflicts, edits during pending saves, ordered draft writes, batch metric reuse, vendor suggestion refresh, export/import, brand window launch and batch review.');
   }finally{await browser.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

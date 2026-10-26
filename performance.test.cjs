@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const {pathToFileURL} = require('node:url');
+const {launchBrowser} = require('./browser-test-helper.cjs');
 
 async function main() {
   let textEvents = 0;
@@ -15,8 +15,7 @@ async function main() {
   assert.equal(fixture.fillText({label:'Name'},'New value'),'');
   assert.equal(textEvents,4);
 
-  const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser = await chromium.launch({headless:true,channel:process.env.TEST_BROWSER_CHANNEL || 'chrome'});
+  const {browser, pageURL} = await launchBrowser();
   try {
     const context = await browser.newContext();
     const storage = {};
@@ -28,7 +27,7 @@ async function main() {
       window.chrome={storage:{local:{get:key=>window.readStorage(key),set:data=>window.writeStorage(data),remove:key=>window.removeStorage(key)},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(){}}}};
     });
     const page = await context.newPage();
-    await page.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);
+    await page.goto(pageURL('popup.html'));
     await page.waitForSelector('#f_name');
     await page.evaluate(()=>{
       const el=document.getElementById('f_name');

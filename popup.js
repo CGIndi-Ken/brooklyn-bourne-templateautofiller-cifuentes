@@ -76,7 +76,7 @@ function makeControl(def) {
   if (def.maxLength) el.maxLength = def.maxLength;
   if (def.key === "onlineDescription") el.rows = 6;
 
-  if (def.type === "autocomplete" && opts && !def.multi) {
+  if (def.type === "autocomplete" && opts && !def.multi && !["vendor", "brand"].includes(def.key)) {
     const dl = document.createElement("datalist");
     dl.id = `dl_${def.key}`;
     opts.forEach((o) => dl.appendChild(new Option(o)));
@@ -209,7 +209,7 @@ function setValue(def, value) {
   if (el.tagName === "SELECT" && value && ![...el.options].some((o) => o.value === value)) {
     el.appendChild(new Option(value, value)); // keep a saved value even if it isn't in the list
   }
-  el.value = value || "";
+  el.value = value ?? "";
 }
 
 function loadSelected(templates) {
@@ -223,7 +223,8 @@ function loadSelected(templates) {
   applyCategoryDefaults();
   updateCounts();
   resetDescriptionPrompt();
-  saveDraft();
+  document.dispatchEvent(new Event("templateFormLoaded"));
+  saveDraft().catch(() => toast("Couldn't save draft."));
 }
 
 function resetDescriptionPrompt() {
@@ -235,6 +236,12 @@ function resetDescriptionPrompt() {
 let draftTimer;
 let draftDirty = false;
 let lastDraft = "";
+let draftWrite = Promise.resolve();
+function queueDraftWrite(write) {
+  const pending = draftWrite.then(write);
+  draftWrite = pending.catch(() => {});
+  return pending;
+}
 function scheduleDraft() {
   draftDirty = true;
   clearTimeout(draftTimer);
@@ -243,17 +250,22 @@ function scheduleDraft() {
 function flushDraft() {
   if (draftDirty) saveDraft().catch(() => toast("Couldn't save draft. Save your template before closing."));
 }
+function templateDraftState() {
+  const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
+  return { values, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+}
 async function saveDraft() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
-  const templateDraft = { values, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+  const templateDraft = templateDraftState();
   const serialized = JSON.stringify(templateDraft);
-  if (serialized === lastDraft) return;
-  try {
-    await chrome.storage.local.set({ templateDraft });
-    lastDraft = serialized;
-  } catch (e) { draftDirty = true; throw e; }
+  return queueDraftWrite(async () => {
+    if (serialized === lastDraft) return;
+    try {
+      await chrome.storage.local.set({ templateDraft });
+      lastDraft = serialized;
+    } catch (e) { draftDirty = true; throw e; }
+  });
 }
 window.addEventListener("pagehide", flushDraft);
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(); });
@@ -282,7 +294,6 @@ async function copyDescriptionPrompt() {
 function clearTemplateForm() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  lastDraft = "";
   STORED_DEFS.forEach((d) => setValue(d, ""));
   $("copyLoc").checked = false;
   setCategoryPresetUnlocked(false);
@@ -292,7 +303,11 @@ function clearTemplateForm() {
   resetDescriptionPrompt();
   $("bulkNames").value = "";
   invalidateBulk();
-  chrome.storage.local.remove("templateDraft");
+  document.dispatchEvent(new Event("templateFormLoaded"));
+  return queueDraftWrite(async () => {
+    await chrome.storage.local.remove("templateDraft");
+    lastDraft = "";
+  });
 }
 
 let toastTimer;
@@ -305,10 +320,10 @@ function toast(msg) {
 async function refresh() {
   const templates = await getTemplates();
   const select = $("templateSelect");
-  select.innerHTML = "";
-  select.appendChild(new Option("Select a saved template", ""));
-  Object.keys(templates).forEach((name) => select.appendChild(new Option(name, name)));
-  loadSelected(templates);
+  const selected = select.value;
+  select.replaceChildren(new Option("Select a saved template", ""),
+    ...Object.keys(templates).map((name) => new Option(name, name)));
+  select.value = Object.hasOwn(templates, selected) ? selected : "";
 }
 
 $("templateSelect").addEventListener("change", async () => loadSelected(await getTemplates()));
@@ -330,7 +345,7 @@ $("templateName").addEventListener("input", scheduleDraft);
 $("copyLoc").addEventListener("change", () => { invalidateBulk(); scheduleDraft(); });
 
 $("newBtn").addEventListener("click", () => {
-  clearTemplateForm();
+  clearTemplateForm().catch(() => toast("Couldn't clear draft."));
   $("templateName").focus();
 });
 
@@ -340,7 +355,7 @@ $("copyBtn").addEventListener("click", () => {
   $("templateName").value = `${name} copy`;
   $("templateName").focus();
   $("templateName").select();
-  saveDraft();
+  saveDraft().catch(() => toast("Couldn't save draft."));
   toast("Rename it, then click Save.");
 });
 
@@ -357,16 +372,25 @@ function readTemplateForm() {
 }
 
 $("saveBtn").addEventListener("click", async () => {
+  if ($("saveBtn").disabled) return;
   const name = $("templateName").value.trim();
   if (!name) { $("templateName").focus(); return toast("Enter a template name."); }
   let data;
   try { data = readTemplateForm(); } catch (e) { return toast(e.message); }
-  const templates = await getTemplates();
-  templates[name] = data;
-  await chrome.storage.local.set({ templates });
-  await refresh();
-  clearTemplateForm();
-  toast(`Saved "${name}"`);
+  const original = JSON.stringify(templateDraftState());
+  $("saveBtn").disabled = true;
+  try {
+    const templates = await getTemplates();
+    Object.defineProperty(templates, name, {value:data, enumerable:true, writable:true, configurable:true});
+    await chrome.storage.local.set({ templates });
+    await refresh();
+    // Keep edits made while storage was busy instead of resetting the newer form.
+    if (JSON.stringify(templateDraftState()) === original) {
+      await clearTemplateForm();
+    }
+    toast(`Saved "${name}"`);
+  } catch (e) { toast(`Save failed: ${e.message}`); }
+  finally { $("saveBtn").disabled = false; }
 });
 
 function invalidateBulk() {

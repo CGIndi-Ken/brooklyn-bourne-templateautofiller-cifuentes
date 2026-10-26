@@ -14,9 +14,14 @@ async function showTab(tab) {
 }
 
 async function fillTab(tab, template) {
-  await showTab(tab);
   try {
-    return await chrome.tabs.sendMessage(tab.id, { type: "fill", template });
+    await showTab(tab);
+    const result = await chrome.tabs.sendMessage(tab.id, { type: "fill", template });
+    if (!result || typeof result !== "object" ||
+        !(result.skipped || result.error || result.busy || Array.isArray(result.problems))) {
+      return { error: "No fill result from this tab. Reload it and try again." };
+    }
+    return result;
   } catch (e) {
     return { error: "Couldn't reach this tab. Reload it and try again." };
   }
@@ -26,7 +31,8 @@ function describe(result) {
   if (result.skipped) return `skipped (${result.skipped})`;
   if (result.error) return result.error;
   if (result.busy) return "skipped (still busy with another run)";
-  const issues = result.problems.length ? `, ${result.problems.length} issue${result.problems.length > 1 ? "s" : ""}` : "";
+  const problems = result.problems || [];
+  const issues = problems.length ? `, ${problems.length} issue${problems.length > 1 ? "s" : ""}` : "";
   return `${result.template}: ${result.filled}/${result.total} filled${issues}`;
 }
 
@@ -47,7 +53,8 @@ async function runBatch(origin, template) {
   if (batchRunning) return tellOrigin(origin, "A multi-tab run is already in progress.");
   batchRunning = true;
   // Long runs: a harmless API call every 20s stops Chrome from putting this worker to sleep
-  const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo(), 20000);
+  const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => {}), 20000);
+  let message;
   try {
     const tabs = (await chrome.tabs.query({ url: DUTCHIE_TABS, windowId: origin.windowId })).sort((a, b) => a.index - b.index);
     const results = [];
@@ -55,14 +62,17 @@ async function runBatch(origin, template) {
       await tellOrigin(origin, `Filling tab ${i + 1} of ${tabs.length}...`);
       results.push(await fillTab(tab, template));
     }
-    await showTab(origin);
-    await tellOrigin(origin, summarize(results));
+    message = summarize(results);
   } catch (e) {
-    await tellOrigin(origin, `Multi-tab run stopped: ${e.message}`);
+    message = `Multi-tab run stopped: ${e.message}`;
   } finally {
     clearInterval(keepAlive);
+    try {
+      await showTab(origin);
+    } catch (e) { /* the originating tab or window may have closed */ }
     batchRunning = false;
   }
+  await tellOrigin(origin, message);
 }
 
 // The panel's "Fill every tab" button

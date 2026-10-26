@@ -1,7 +1,8 @@
 // Manual research prompt only: no requests to ChatGPT or strain websites are sent here.
 function strainFromTitle(title) {
+  title = title.trim();
   const types = { S: "Sativa", H: "Hybrid", I: "Indica", IH: "Indica-dominant hybrid", SH: "Sativa-dominant hybrid" };
-  const match = title.trim().match(/\((S|H|I|I\s*\/?\s*H|S\s*\/?\s*H)\)\s*$/i);
+  const match = title.match(/\((S|H|I|I\s*\/?\s*H|S\s*\/?\s*H)\)\s*$/i);
   if (!match) throw new Error("End Name with a strain type: (S), (H), (I), (I/H), or (S/H).");
   const parts = title.slice(0, match.index).split("|").map((s) => s.trim());
   let strain;

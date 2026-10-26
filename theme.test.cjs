@@ -3,11 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const {pathToFileURL} = require('node:url');
+const {launchBrowser} = require('./browser-test-helper.cjs');
 async function main() {
   for (const file of fs.readdirSync(__dirname).filter(f=>f.endsWith('.js'))) new vm.Script(fs.readFileSync(path.join(__dirname,file),'utf8'),{filename:file});
-  const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser = await chromium.launch({headless:true,channel:process.env.TEST_BROWSER_CHANNEL || 'chrome'});
+  const {browser, pageURL} = await launchBrowser();
   try {
     const ctx = await browser.newContext({viewport:{width:800,height:1100}});
     let storage={};
@@ -23,7 +22,7 @@ async function main() {
     });
     const errors=[];
     const popup=await ctx.newPage();popup.on('pageerror',e=>errors.push(e.message));
-    await popup.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);
+    await popup.goto(pageURL('popup.html'));
     await popup.waitForSelector('#f_name');
     assert.equal(await popup.locator('#themeSelect').inputValue(),'black-gold');
     const panel=await ctx.newPage();panel.on('pageerror',e=>errors.push(e.message));

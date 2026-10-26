@@ -258,8 +258,9 @@ function renderStep() {
 
 async function doNext() {
   if (stepIdx >= steps.length) return renderStep();
-  const result = await run(steps[stepIdx].defs, { reuseOpen: true });
-  if (result && !result.busy && !result.problems.length) stepIdx++; // stay on this step if a run is already active or failed
+  const step = steps[stepIdx];
+  const result = await run(step.defs, { reuseOpen: true });
+  if (steps[stepIdx] === step && result && !result.busy && !result.problems.length) stepIdx++; // stay on this step if a run is already active or failed
   renderStep();
 }
 

@@ -29,6 +29,8 @@ In Bulk editor you can load existing saved templates, edit multiple products tog
 
 Use **Brand directory** to save a vendor and multiple brands. Vendor name suggests learned Dutchie names, saved directory vendors, and vendors from templates. Selecting a saved vendor restores its pairings. Search brands and select several suggestions; selections remain as removable chips while you search. Use Arrow keys and Enter to select, Escape to close suggestions, or Backspace in an empty search to remove the last chip. You can also add a new exact brand name with Enter. Click **Save pairing** to remember changes, or use **Remember pairs from saved templates** to collect existing pairings.
 
+To remove a saved vendor, select it in **Brand directory**, click **Delete vendor**, and confirm. This removes its directory pairings and keeps saved product templates. Learned suggestions and template values remain available; **Remember pairs from saved templates** can add those pairings again.
+
 The main template editor suggests that vendor's brands. Select a vendor and check its brands to create a separate bulk window with one starting entry per selected brand; use Add product or Duplicate settings for more. Shared settings from the template form carry into batches launched from the popup directory. Pairings are included in template exports and merged on import. Saved workspace drafts recover unfinished batches after reload.
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
@@ -41,3 +43,15 @@ Type and Default unit are locked to **Quantity** in the editor. Full fills alway
 
 The panel responds to product-form mounting and removal rather than polling while idle. Draft writes are grouped during typing and flushed when leaving the field or popup; unchanged drafts are not written again. Already-correct text fields are skipped to avoid unnecessary input events. Dropdown selection and SKU response waits retain their reliability checks.
 
+
+## Development checks
+
+The extension runs directly from these source files; no build or bundler is needed. Tests use Node.js, with Playwright and a Chrome/Chromium executable for browser checks. Run the full suite with:
+
+```sh
+PLAYWRIGHT_MODULE=/path/to/playwright \
+TEST_BROWSER_EXECUTABLE=/path/to/chromium \
+node --test --test-concurrency=2 *.test.cjs
+```
+
+Use `PLAYWRIGHT_MODULE=playwright` when the package resolves normally. Alternatively, omit `TEST_BROWSER_EXECUTABLE` to use installed Chrome, or select a Playwright browser with `TEST_BROWSER_CHANNEL`. Browser fixtures run on a temporary local HTTP server with mocked extension storage; they do not contact Dutchie. After changes, reload the unpacked extension and verify autofill on the actual product form.

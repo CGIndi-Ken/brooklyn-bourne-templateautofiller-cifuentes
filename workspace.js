@@ -11,6 +11,7 @@ const TOP_FIELDS = ["name", "vendor", "brand", "medBasePrice", "cost", "gramsCon
 const FIELD_MAP = Object.fromEntries(WORKSPACE_FIELDS.map((def) => [def.key, def]));
 const rows = new Map();
 let templates = {}, directory = [], learned = {}, shared = {}, recent = null;
+let deletingVendor = false;
 let activeVendor = "", saveTimer, saving = false, initialized = false, workspaceDirty = false, lastWorkspaceDraft = "";
 const read = async (key) => (await chrome.storage.local.get(key))[key];
 const clone = (value) => structuredClone(value);
@@ -30,8 +31,15 @@ $w("toggleTools").addEventListener("click",()=>{const open=document.body.classLi
 
 function serializeWorkspace() { return {shared, rows:[...rows.values()].map(({id,key,values,baseline,stored,selected,tab,collapsed}) => ({id,key,values,baseline,stored,selected,tab,collapsed})), quickNames:$w("quickNames").value, search:$w("entrySearch").value}; }
 function scheduleSave() { workspaceDirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(() => persistDraft().catch((e) => setWorkspaceStatus(`Draft could not be saved: ${e.message}`, true)), 250); }
-async function persistDraft() {
+let draftWrite = Promise.resolve();
+function persistDraft() {
   clearTimeout(saveTimer);
+  // Focus changes and debounce flushes can overlap; keep storage writes ordered.
+  const pending = draftWrite.then(writeDraft);
+  draftWrite = pending.catch(() => {});
+  return pending;
+}
+async function writeDraft() {
   if (!initialized || !workspaceDirty) return;
   const draft = serializeWorkspace(), serialized = JSON.stringify(draft);
   if (serialized === lastWorkspaceDraft) {workspaceDirty=false;return;}
@@ -49,7 +57,6 @@ function addRow(values, {key = "", baseline = values, stored = null, id = crypto
   rows.set(id, row);
   renderRow(row);
   updateRow(row);
-  updateMetrics();
 }
 function loadKeys(keys, baseline) {
   for (const key of keys) if (Object.hasOwn(templates,key)) addRow(templates[key], {key, stored:templates[key], baseline:baseline || templates[key]});
@@ -105,13 +112,12 @@ function setCollapsed(row,collapsed) {
 for(const [id,collapsed] of [["collapseAll",true],["expandAll",false]]) $w(id).addEventListener("click",()=>{for(const row of rows.values())setCollapsed(row,collapsed);scheduleSave();});
 function filterEntries() {
   const terms=$w("entrySearch").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  let visible=0;
-  for(const row of rows.values()) {const matches=terms.every((term)=>row.searchText.includes(term));row.element.hidden=!matches;if(matches)visible++;}
+  let visible=0, selected=0;
+  for(const row of rows.values()) {const matches=terms.every((term)=>row.searchText.includes(term));row.element.hidden=!matches;if(matches){visible++;if(row.selected)selected++;}}
   $w("entrySearchStatus").textContent=`Showing ${visible} of ${rows.size} entries`;
   $w("noEntryMatches").hidden=!rows.size || visible>0;
-  const shown=[...rows.values()].filter((row)=>!row.element.hidden);
-  $w("selectAll").checked=!!shown.length && shown.every((row)=>row.selected);
-  $w("selectAll").indeterminate=shown.some((row)=>row.selected) && shown.some((row)=>!row.selected);
+  $w("selectAll").checked=visible>0 && selected===visible;
+  $w("selectAll").indeterminate=selected>0 && selected<visible;
 }
 $w("entrySearch").addEventListener("input",()=>{filterEntries();scheduleSave();});
 function renderPanel(row) {
@@ -157,12 +163,23 @@ function updateRow(row) {
   }
   const counter = row.element.querySelector(".description-count"); if (counter) counter.textContent = `${row.values.onlineDescription.length}/2500 characters`;
 }
+const metricValues = ["Products", "Unsaved entries", "Fields changed", "Fields left blank"].map((label) => {
+  const el = node("div", "", "metric"), value = node("strong", "0");
+  el.append(value, node("span", label)); $w("metrics").append(el); return value;
+});
 function updateMetrics() {
-  const items = [...rows.values()]; const diffs = items.flatMap((row) => row.diff || []);
-  $w("metrics").replaceChildren(...[[items.length,"Products"],[items.filter((row) => row.dirty).length,"Unsaved entries"],[diffs.filter((d) => d.state === "changed").length,"Fields changed"],[diffs.filter((d) => d.state === "blank").length,"Fields left blank"]].map(([value,label]) => {
-    const el = node("div", "", "metric"); el.append(node("strong",String(value)),node("span",label)); return el;
-  }));
-  $w("emptyState").hidden = !!items.length;
+  let dirty = 0, changed = 0, blank = 0;
+  for (const row of rows.values()) {
+    if (row.dirty) dirty++;
+    for (const diff of row.diff || []) {
+      if (diff.state === "changed") changed++;
+      else if (diff.state === "blank") blank++;
+    }
+  }
+  [rows.size, dirty, changed, blank].forEach((value, index) => {
+    if (metricValues[index].textContent !== String(value)) metricValues[index].textContent = String(value);
+  });
+  $w("emptyState").hidden = !!rows.size;
   filterEntries();
 }
 function refreshValues(row) {
@@ -200,13 +217,13 @@ $w("entries").addEventListener("click",async(event) => {
   const row = rows.get(button.closest("[data-row]").dataset.row);
   if (button.dataset.action === "collapse") {setCollapsed(row,!row.collapsed);scheduleSave();}
   if (button.dataset.action === "tab") { row.tab = row.tab === button.dataset.tab ? "" : button.dataset.tab; renderPanel(row); updateRow(row); scheduleSave(); }
-  if (button.dataset.action === "duplicate") { addRow(newProduct(row.values),{baseline:row.values}); scheduleSave(); }
+  if (button.dataset.action === "duplicate") { addRow(newProduct(row.values),{baseline:row.values}); updateMetrics(); scheduleSave(); }
   if (button.dataset.action === "reload") {
     try {
       if(row.dirty && !confirm("Reload this saved template and discard its local changes?")) return;
       const latest=(await read("templates") || {})[row.key];
       if(!latest) throw new Error("This template is no longer saved. Remove this entry and add a new one.");
-      row.values=productValues(latest);row.baseline=clone(latest);row.stored=clone(latest);refreshValues(row);renderPanel(row);updateMetrics();scheduleSave();setWorkspaceStatus("Reloaded the saved template.");
+      row.values=productValues(latest);row.baseline=clone(latest);row.stored=clone(latest);renderPanel(row);refreshValues(row);updateMetrics();scheduleSave();setWorkspaceStatus("Reloaded the saved template.");
     }catch(e){setWorkspaceStatus(e.message,true);}
   }
   if (button.dataset.action === "remove") { if (row.dirty && !confirm("Discard this entry's unsaved changes? Saved templates will be kept.")) return; rows.delete(row.id); row.element.remove(); updateMetrics(); scheduleSave(); }
@@ -222,11 +239,11 @@ function addForBrand(name = "") {
   const brand = $w("entryBrand").value || (vendor === shared.vendor ? shared.brand : "") || "";
   addRow(newProduct(shared,{name,vendor,brand}),{baseline:shared});
 }
-$w("addEntry").addEventListener("click",() => { addForBrand(); scheduleSave(); });
+$w("addEntry").addEventListener("click",() => { addForBrand(); updateMetrics(); scheduleSave(); });
 $w("addNames").addEventListener("click",() => {
   const names = $w("quickNames").value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   for (const name of names) addForBrand(name);
-  $w("quickNames").value = ""; scheduleSave(); setWorkspaceStatus(`Added ${names.length} entries.`);
+  $w("quickNames").value = ""; updateMetrics(); scheduleSave(); setWorkspaceStatus(`Added ${names.length} entries.`);
 });
 $w("quickNames").addEventListener("input",scheduleSave);
 $w("useSource").addEventListener("click",() => { const key = $w("sharedSource").value; shared = key ? productValues(templates[key]) : {}; refreshVendorSelectors(shared.vendor,shared.brand); scheduleSave(); setWorkspaceStatus("Shared settings selected for new entries. Existing entries kept."); });
@@ -280,12 +297,17 @@ $w("saveProducts").addEventListener("click",async() => {
       if (row.key && JSON.stringify(latest[key]) !== JSON.stringify(row.stored)) throw new Error(`"${key}" changed in another window. Use Reload on that entry before saving.`);
       const values = productValues(row.values);
       for (const def of WORKSPACE_FIELDS) { values[def.key] = values[def.key].trim(); if (def.maxLength && values[def.key].length > def.maxLength) throw new Error(`${key}: ${def.label} exceeds ${def.maxLength} characters.`); }
-      changes.push({row,key,values});
+      changes.push({row,key,values,submitted:clone(row.values)});
     }
     for (const {key,values} of changes) Object.defineProperty(latest,key,{value:values,enumerable:true,writable:true,configurable:true});
     await chrome.storage.local.set({templates:latest,lastBulkBatch:{keys:changes.map((change) => change.key),shared}});
     templates = latest;
-    for (const {row,key,values} of changes) { row.key=key; row.stored=clone(values); row.values=values;row.element.querySelector('[data-action="reload"]').hidden=false; refreshValues(row); }
+    for (const {row,key,values,submitted} of changes) {
+      row.key=key; row.stored=clone(values);
+      // Storage is asynchronous: edits made while saving must remain unsaved.
+      if (sameProduct(row.values,submitted)) row.values=values;
+      row.element.querySelector('[data-action="reload"]').hidden=false; refreshValues(row);
+    }
     updateMetrics(); renderSavedChoices(); workspaceDirty=true;await persistDraft(); setWorkspaceStatus(`Saved ${changes.length} templates. Your changes and blank fields are still visible.`);
   } catch(e) { setWorkspaceStatus(e.message,true); } finally { saving=false; $w("saveProducts").disabled=false; }
 });
@@ -294,6 +316,11 @@ function renderDirectoryLists() {
   let container = $w("directoryLists"); if (!container) { container=node("div");container.id="directoryLists";document.body.append(container); }
   const list = (id,values) => { const dl=document.createElement("datalist");dl.id=id;dl.append(...[...new Set(values)].map((value)=>new Option(value,value)));return dl; };
   container.replaceChildren(list("vendorsList",[...directory.map((entry)=>entry.vendor),...(learned.vendor || []),...Object.values(templates).map((template)=>template.vendor).filter(Boolean)]),list("allBrandsList",[...directory.flatMap((entry)=>entry.brands),...(learned.brand || [])]),...directory.map((entry,index)=>list(`vendorBrands-${index}`,entry.brands)));
+  // Directory sorting can move vendor indices; keep existing inputs paired correctly.
+  for (const row of rows.values()) {
+    const input = row.element.querySelector('[data-field="brand"]');
+    if (input) input.setAttribute("list",brandListId(row.values.vendor));
+  }
   brandPicker.refresh();
 }
 function refreshVendorSelectors(vendor = $w("entryVendor").value, brand = $w("entryBrand").value) {
@@ -308,10 +335,13 @@ function selectVendor(vendor) {
   const entry=directory.find((item)=>item.vendor.toLowerCase()===vendor.toLowerCase());
   activeVendor=entry?.vendor || "";
   $w("vendorName").value=entry?.vendor || ""; brandPicker.set(entry?.brands || []);
+  $w("deleteVendor").disabled=!entry || deletingVendor;
+  $w("editVendorTemplates").disabled=!entry;
   $w("createBrandBatch").disabled=!entry;
   $w("brandChoices").replaceChildren(...(entry?.brands || []).map((brand)=>{const label=node("label","","brand-choice");const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.value=brand;checkbox.checked=true;label.append(checkbox,document.createTextNode(brand));return label;}));
 }
 function renderDirectory() {
+  if(activeVendor && !directory.some((entry)=>entry.vendor.toLowerCase()===activeVendor.toLowerCase())) selectVendor("");
   $w("vendorList").replaceChildren(...directory.map((entry)=>{const button=node("button",entry.vendor,"vendor-item");button.append(node("small",`${entry.brands.length} brand${entry.brands.length===1?"":"s"}`));button.addEventListener("click",()=>selectVendor(entry.vendor));return button;}));
   renderDirectoryLists(); refreshVendorSelectors();
 }
@@ -319,7 +349,7 @@ $w("newVendor").addEventListener("click",()=>selectVendor(""));
 $w("vendorName").addEventListener("change",()=>{
   const vendor=$w("vendorName").value.trim();
   if(directory.some((entry)=>entry.vendor.toLowerCase()===vendor.toLowerCase())) selectVendor(vendor);
-  else {activeVendor="";$w("brandChoices").replaceChildren();$w("createBrandBatch").disabled=true;}
+  else {activeVendor="";$w("editVendorTemplates").disabled=true;$w("deleteVendor").disabled=true;$w("brandChoices").replaceChildren();$w("createBrandBatch").disabled=true;}
 });
 $w("saveVendor").addEventListener("click",async()=>{
   try {
@@ -328,6 +358,20 @@ $w("saveVendor").addEventListener("click",async()=>{
     directory=mergeVendor(await read("brandDirectory") || [],vendor,brandPicker.values());
     await chrome.storage.local.set({brandDirectory:directory}); renderDirectory();selectVendor(vendor);setWorkspaceStatus(`Saved ${vendor} and its brands.`);
   } catch(e) {setWorkspaceStatus(e.message,true);}
+});
+$w("deleteVendor").addEventListener("click",async()=>{
+  const vendor=activeVendor;
+  if(!vendor || deletingVendor) return;
+  if(!confirm(`Delete "${vendor}" and its brand pairings from the directory? Saved product templates will be kept.`)) return;
+  deletingVendor=true; $w("deleteVendor").disabled=true;
+  try {
+    const latest=await read("brandDirectory") || [];
+    const next=latest.filter((entry)=>entry.vendor.toLowerCase()!==vendor.toLowerCase());
+    await chrome.storage.local.set({brandDirectory:next});
+    directory=next;renderDirectory();
+    setWorkspaceStatus(`Deleted ${vendor} from the directory. Saved templates were kept.`);
+  } catch(e) {setWorkspaceStatus(`Could not delete vendor: ${e.message}`,true);}
+  finally {deletingVendor=false;$w("deleteVendor").disabled=!activeVendor;}
 });
 $w("learnPairs").addEventListener("click",async()=>{
   try {

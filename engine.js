@@ -21,22 +21,23 @@ const sortKey = (def) => TAB_ORDER.indexOf(tabOf(def)) * 10 + ORDER[def.type];
 // What a field should be filled with for this template ("" = skip it)
 function valueFor(def, template) {
   if (def.fixed) return def.fixed;
+  if (def.copyOf && !def.alwaysCopy && !template.copyToLocation) return "";
   if (def.copyOf === "externalCategory" && !template.categoryPresetUnlocked) {
     const preset = categoryPresetFor(template.category);
     if (preset) return preset.externalCategory || "";
   }
-  if (def.copyOf) return def.alwaysCopy || template.copyToLocation ? template[def.copyOf] || "" : "";
+  if (def.copyOf) return template[def.copyOf] ?? "";
   if ((def.key === "regulatoryCategory" || def.key === "externalCategory") && !template.categoryPresetUnlocked) {
     const preset = categoryPresetFor(template.category);
     if (preset) return preset[def.key] || "";
   }
-  return template[def.key] || "";
+  return template[def.key] ?? "";
 }
 
 // Fills `defs` from `template`. Returns { filled, total, problems, empty?, busy? }.
-async function runFields(defs, template, opts) {
+async function runFields(defs, template, opts = {}) {
   const result = await exclusive(async () => {
-    const todo = defs.filter((d) => valueFor(d, template)).sort((a, b) => sortKey(a) - sortKey(b));
+    const todo = defs.filter((d) => valueFor(d, template) !== "").sort((a, b) => sortKey(a) - sortKey(b));
     if (!todo.length) return { filled: 0, total: 0, problems: [], empty: true };
 
     const byTab = {};
@@ -49,7 +50,7 @@ async function runFields(defs, template, opts) {
     for (const tab of tabsUsed) {
       const group = byTab[tab];
       const opened = await ensureTab(tab, group[0]);
-      if (!opened && tab !== "details") {
+      if (!opened) {
         problems.push(`Couldn't open the "${tab}" tab`);
         done += group.length;
         continue;
@@ -78,7 +79,7 @@ async function runFields(defs, template, opts) {
 
 // Step-by-step mode follows the same Details / Location / Online ordering as a full fill.
 function buildSteps(template) {
-  const wanted = FIELD_DEFS.filter((d) => valueFor(d, template)).sort((a, b) => sortKey(a) - sortKey(b));
+  const wanted = FIELD_DEFS.filter((d) => valueFor(d, template) !== "").sort((a, b) => sortKey(a) - sortKey(b));
   const steps = wanted
     .filter((d) => d.type !== "text")
     .map((d) => ({ label: d.label, defs: [d], order: sortKey(d) }));
