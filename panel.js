@@ -190,11 +190,13 @@ function renderTemplates() {
 }
 
 async function loadTemplates() {
+  if (typeof categoryPairingsReady !== "undefined") await categoryPairingsReady;
   const stored = await chrome.storage.local.get("templates");
   templates = stored.templates || {};
   renderTemplates();
 }
 loadTemplates();
+document.addEventListener("categoryPairingsChanged",() => {resetSteps();renderStep();});
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.templates) {
     templates = changes.templates.newValue || {};

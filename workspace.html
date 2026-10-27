@@ -41,7 +41,7 @@
             <label for="applyField">Field</label><select id="applyField"></select>
             <label for="applyValue" id="applyValueLabel">Value</label><div id="applyTagsValue" hidden></div><input id="applyValue" placeholder="Value for selected entries" list="applyChoices"><datalist id="applyChoices"></datalist>
             <label class="check"><input id="clearValue" type="checkbox">Clear this field instead</label>
-            <button id="applySelected">Apply to selected entries</button><p class="sub">Other fields stay as they are. Locked category presets still apply.</p>
+            <button id="applySelected">Apply to selected entries</button><button id="rememberCategoryPairs">Remember category pairings from selected entries</button><p class="sub">Category changes use remembered pairings. Applying a regulatory or external category creates an override for checked, shown entries. Remember their pairings to reuse them on matching categories.</p>
           </div></section>
           <details class="card"><summary>Load saved templates</summary><div class="fields"><input id="savedSearch" placeholder="Filter templates" aria-label="Filter saved templates"><div id="savedChoices" class="choice-list"></div><button id="loadSelected">Load selected templates</button><button id="loadRecent">Load last bulk batch</button></div></details>
         </aside>
@@ -55,6 +55,6 @@
     </section>
   </main>
   <footer class="workspace-footer"><span id="workspaceStatus" role="status">Ready.</span><button id="saveProducts" class="gold-button">Save all templates</button></footer>
-  <script src="theme.js"></script><script src="fields.js"></script><script src="description.js"></script><script src="bulk.js"></script><script src="workspace-model.js"></script><script src="brand-picker.js"></script><script src="tag-picker.js"></script><script src="workspace.js"></script>
+  <script src="theme.js"></script><script src="fields.js"></script><script src="category-pairings.js"></script><script src="description.js"></script><script src="bulk.js"></script><script src="workspace-model.js"></script><script src="brand-picker.js"></script><script src="tag-picker.js"></script><script src="workspace.js"></script>
 </body></html>
 

@@ -17,9 +17,12 @@ const CATEGORY_PRESETS = {
   "preroll packs": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
   "prerolls": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
 };
+const categoryKey = (category) => String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "").trim();
+let rememberedCategoryPairings = {};
 const categoryPresetFor = (category) => {
-  const name = String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "");
-  return Object.hasOwn(CATEGORY_PRESETS, name) ? CATEGORY_PRESETS[name] : null;
+  const name = categoryKey(category);
+  if (Object.hasOwn(rememberedCategoryPairings,name)) return rememberedCategoryPairings[name];
+  return Object.hasOwn(CATEGORY_PRESETS,name) ? CATEGORY_PRESETS[name] : null;
 };
 
 const RETIRED_FIELD_KEYS = ["abbreviation", "upc", "alternateName", "lowStockThreshold", "maxPerTransaction", "allergens", "ingredients", "locMaxPerTransaction", "locReplenishment"];

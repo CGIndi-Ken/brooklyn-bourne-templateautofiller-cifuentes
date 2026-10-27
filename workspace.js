@@ -342,9 +342,17 @@ $w("applySelected").addEventListener("click",() => {
     value = /^yes$/i.test(value);
   } else if (!value && !$w("clearValue").checked) return setWorkspaceStatus("Enter a value or choose Clear this field.",true);
   let count = 0;
-  for (const row of rows.values()) if (row.selected && !row.element.hidden) { row.values[key] = value; applyTemplatePreset(row.values); refreshValues(row); if (row.tab === "changes") renderPanel(row); count++; }
+  for (const row of rows.values()) if (row.selected && !row.element.hidden) { row.values[key] = value; if(["regulatoryCategory","externalCategory"].includes(key)) row.values.categoryPresetUnlocked=true; applyTemplatePreset(row.values); refreshValues(row); if (row.tab === "changes") renderPanel(row); count++; }
   updateMetrics(); scheduleSave(); setWorkspaceStatus(`Applied to ${count} shown selected entries. Other fields kept.`);
 });
+$w("rememberCategoryPairs").addEventListener("click",async () => {
+  const selected=[...rows.values()].filter((row)=>row.selected && !row.element.hidden).map((row)=>clone(row.values));
+  try {
+    const count=await rememberCategoryPairings(selected);
+    setWorkspaceStatus(`Remembered ${count} category pairings. Matching products will use them automatically; existing entries were kept.`);
+  } catch(e) {setWorkspaceStatus(e.message,true);}
+});
+
 function renderSavedChoices() {
   const source = $w("sharedSource").value;
   const selected = new Set([...$w("savedChoices").querySelectorAll("input:checked")].map((input) => input.value));
@@ -481,6 +489,7 @@ $w("emptyDirectory").addEventListener("click",()=>showView("directory"));
 $w("openFull").addEventListener("click",async()=>{try{await openProductWorkspace({workspace:serializeWorkspace()});setWorkspaceStatus("Opened this batch in a separate window.");}catch(e){setWorkspaceStatus(e.message,true);}});
 
 async function boot() {
+  await categoryPairingsReady;
   [templates,directory,learned,recent]=await Promise.all([read("templates"),read("brandDirectory"),read("options"),read("lastBulkBatch")]);
   templates ||= {};directory ||= [];learned ||= {};
   renderDirectory();renderSavedChoices();refreshTagOptions();updateApplyChoices();

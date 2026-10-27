@@ -178,8 +178,17 @@ function buildForm() {
         toggleLabel.append(toggle, document.createTextNode("Unlock regulatory and external category presets"));
         const hint = document.createElement("p");
         hint.className = "sub";
-        hint.textContent = "These values follow the selected category unless unlocked.";
-        presetRow.append(toggleLabel, hint);
+        hint.textContent = "These values follow the selected category. Unlock to edit; Remember saves the pairing for matching categories.";
+        const remember=document.createElement("button");remember.type="button";remember.id="rememberCategoryPair";
+        remember.textContent="Remember these category pairings";
+        remember.addEventListener("click",async () => {
+          try {
+            const pair=readTemplateForm();
+            await rememberCategoryPairings([pair]);
+            toast("Category pairings remembered for matching products.");
+          } catch(e) {toast(e.message);}
+        });
+        presetRow.append(toggleLabel, hint, remember);
         body.appendChild(presetRow);
       }
     });
@@ -441,8 +450,9 @@ $("exportBtn").addEventListener("click", async () => {
   try {
     const templates = await getTemplates();
     const {brandDirectory = []} = await chrome.storage.local.get("brandDirectory");
+    const {categoryPairings = {}} = await chrome.storage.local.get("categoryPairings");
     const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,removeRetiredFields({...template})]));
-    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory, categoryPairings }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -465,6 +475,10 @@ $("importFile").addEventListener("change", async () => {
     if (!isObject(backup) || backup.format !== "brooklyn-bourne-templates" || backup.version !== 1 || !isObject(backup.templates)) {
       throw new Error("Choose a template export from this extension.");
     }
+    let importedPairings;
+    if (backup.categoryPairings !== undefined) {
+      importedPairings={...validateCategoryPairings((await chrome.storage.local.get("categoryPairings")).categoryPairings || {}),...validateCategoryPairings(backup.categoryPairings)};
+    }
     // Validate every entry before saving anything; accept only known editable fields.
     const entries = Object.entries(backup.templates).map(([name, template]) => {
       if (!name.trim() || !isObject(template)) throw new Error("Invalid template in file.");
@@ -480,6 +494,8 @@ $("importFile").addEventListener("change", async () => {
       clean.copyToLocation = !!template.copyToLocation;
       clean.categoryPresetUnlocked = template.categoryPresetUnlocked === true;
       applyTemplatePreset(clean);
+      const key=categoryKey(clean.category);
+      if (!clean.categoryPresetUnlocked && importedPairings && Object.hasOwn(importedPairings,key)) Object.assign(clean,importedPairings[key]);
       return [name.trim(), clean];
     });
     const templates = await getTemplates();
@@ -499,7 +515,7 @@ $("importFile").addEventListener("change", async () => {
       while (Object.hasOwn(templates, target)) target = `${name} (imported ${count++})`;
       Object.defineProperty(templates, target, { value: template, enumerable: true, writable: true, configurable: true });
     }
-    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}) });
+    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}), ...(importedPairings ? {categoryPairings:importedPairings} : {}) });
     await refresh();
     $("transferStatus").textContent = `Imported ${entries.length} templates. Existing templates were preserved.`;
   } catch (e) {
@@ -510,6 +526,7 @@ $("importFile").addEventListener("change", async () => {
 });
 
 (async () => {
+  await categoryPairingsReady;
   learned = await getLearned();
   buildForm();
   const count = Object.keys(learned).length;

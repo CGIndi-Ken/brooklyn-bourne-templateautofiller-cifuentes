@@ -37,6 +37,7 @@ function valueFor(def, template) {
 // Fills `defs` from `template`. Returns { filled, total, problems, empty?, busy? }.
 async function runFields(defs, template, opts = {}) {
   const result = await exclusive(async () => {
+    if (typeof categoryPairingsReady !== "undefined") await categoryPairingsReady;
     const todo = defs.filter((d) => valueFor(d, template) !== "").sort((a, b) => sortKey(a) - sortKey(b));
     if (!todo.length) return { filled: 0, total: 0, problems: [], empty: true };
 

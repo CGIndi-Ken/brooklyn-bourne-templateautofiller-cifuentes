@@ -51,6 +51,14 @@ Select the products to update, optionally search to narrow them, and use **Apply
 
 Each product also shows THC, THC unit, tags, cost and base price directly, so different values can be edited individually. Completion inputs and product edits are remembered as a local draft. Review the changes and click **Save all templates** before exporting or autofilling. Other template fields are preserved.
 
+## Remember category pairings
+
+A product category can remember its regulatory category and external category. Built-in pairings still apply until you remember a replacement. Category names match regardless of case and the `(New Category)` / `(New Categories)` suffix.
+
+In **Bulk editor**, select the products, apply their regulatory and external categories using **Apply to selected**, then click **Remember category pairings from selected entries**. Only checked, shown entries supply pairings. Each category must have one consistent pairing; conflicting selections are rejected. Applying regulatory or external categories creates a per-template override so your chosen value is kept.
+
+In the single-template editor, choose a category, unlock its presets to edit the pair, then click **Remember these category pairings**. Remembering saves the rule without changing saved product templates. New products and locked templates use the remembered rule automatically in the editors and during autofill. Unlocked templates keep their individual overrides. Pairings persist locally and are included in template exports/imports.
+
 ## Performance
 
 The panel responds to product-form mounting and removal rather than polling while idle. Draft writes are grouped during typing and flushed when leaving the field or popup; unchanged drafts are not written again. Already-correct text fields are skipped to avoid unnecessary input events. Dropdown selection and SKU response waits retain their reliability checks.
