@@ -189,6 +189,7 @@ function buildForm() {
     sections.push({ controls: sec.keys.map((key) => $(`f_${key}`)).filter(Boolean), countEl });
   });
   storedControls = STORED_DEFS.map((def) => ({ def, el: $(`f_${def.key}`) }));
+  Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
   setCategoryPresetUnlocked(false);
   updateCounts();
 }
@@ -294,7 +295,7 @@ async function copyDescriptionPrompt() {
 function clearTemplateForm() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  STORED_DEFS.forEach((d) => setValue(d, ""));
+  STORED_DEFS.forEach((d) => setValue(d, NEW_TEMPLATE_DEFAULTS[d.key] ?? ""));
   $("copyLoc").checked = false;
   setCategoryPresetUnlocked(false);
   $("templateName").value = "";
@@ -352,6 +353,9 @@ $("newBtn").addEventListener("click", () => {
 $("copyBtn").addEventListener("click", () => {
   const name = $("templateName").value.trim();
   if (!name) return toast("Nothing to copy yet.");
+  Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
+  updateCounts();
+  invalidateBulk();
   $("templateName").value = `${name} copy`;
   $("templateName").focus();
   $("templateName").select();

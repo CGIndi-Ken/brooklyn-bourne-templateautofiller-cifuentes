@@ -9,7 +9,7 @@ function productValues(template = {}) {
 }
 
 function newProduct(shared = {}, overrides = {}) {
-  return productValues({ ...shared, name: "", strain: "", onlineDescription: "", externalId: "", ...overrides });
+  return productValues({ ...shared, ...NEW_TEMPLATE_DEFAULTS, name: "", strain: "", onlineDescription: "", externalId: "", ...overrides });
 }
 
 function productDiff(values, baseline = {}) {

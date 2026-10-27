@@ -31,11 +31,13 @@ Use **Brand directory** to save a vendor and multiple brands. Vendor name sugges
 
 To remove a saved vendor, select it in **Brand directory**, click **Delete vendor**, and confirm. This removes its directory pairings and keeps saved product templates. Learned suggestions and template values remain available; **Remember pairs from saved templates** can add those pairings again.
 
+Saved templates and restored drafts keep their existing pricing and grams; starting a new template resets these three values to 0. To replace the zero defaults with bulk pricing, uncheck **Only fill blank THC, cost and price**.
+
 The main template editor suggests that vendor's brands. Select a vendor and check its brands to create a separate bulk window with one starting entry per selected brand; use Add product or Duplicate settings for more. Shared settings from the template form carry into batches launched from the popup directory. Pairings are included in template exports and merged on import. Saved workspace drafts recover unfinished batches after reload.
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
 
-You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. All other editable fields are shared from the form, including category, prices, measurements, THC, vendor, brand, inventory settings, and the location-copy checkbox. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
+You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost, base price and grams/concentration always start at **0** for new templates, including bulk creation, copies and new brand entries. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
