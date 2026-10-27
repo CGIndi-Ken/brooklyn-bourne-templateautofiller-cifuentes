@@ -6,7 +6,7 @@
 // fixed: not stored in templates; applied on every fill
 // options: starting dropdown choices for the template designer (replaced by lists learned from Dutchie)
 // New products never inherit another product's pricing or weight.
-const NEW_TEMPLATE_DEFAULTS = Object.freeze({cost:"0", medBasePrice:"0", gramsConcentration:"0"});
+const NEW_TEMPLATE_DEFAULTS = Object.freeze({cost:"", medBasePrice:"", gramsConcentration:""});
 
 const CATEGORY_PRESETS = {
   "flower": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "Bud/Flower - Each" },

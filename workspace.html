@@ -12,19 +12,18 @@
         <div class="fields">
           <p class="sub">Create templates now and fill these details when they arrive. Load unfinished templates, then select the products to update below.</p>
           <button id="loadIncomplete">Load unfinished templates</button>
+          <p id="completionSelection" role="status" class="sub"></p>
           <label class="check"><input id="bulkFillBlanks" type="checkbox" checked>Only fill blank THC, cost and price</label>
           <div class="completion-grid">
-            <div class="completion-thc"><div class="completion-thc-inputs">
-              <label for="bulkThc">Bulk THC<input id="bulkThc" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
-              <label for="bulkThcUnit">THC unit<select id="bulkThcUnit"><option value="%">%</option><option value="mg">mg</option></select></label>
-            </div><button id="applyBulkThc">Apply THC only</button></div>
-            <div class="completion-value"><label for="bulkCost">Bulk cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkCost">Apply cost only</button></div>
-            <div class="completion-value"><label for="bulkPrice">Bulk base price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkPrice">Apply price only</button></div>
+            <div class="completion-value"><label for="bulkThc">THC value (amount)<input id="bulkThc" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkThc" data-completion-action>Apply THC value only</button><button id="clearBulkThc" data-completion-action>Clear THC value</button></div>
+            <div class="completion-value"><label for="bulkThcUnit">THC unit (% or mg)<select id="bulkThcUnit"><option value="%">%</option><option value="mg">mg</option></select></label><button id="applyBulkThcUnit" data-completion-action>Apply THC unit only</button><button id="clearBulkThcUnit" data-completion-action>Clear THC unit</button></div>
+            <div class="completion-value"><label for="bulkCost">Bulk cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkCost" data-completion-action>Apply cost only</button><button id="clearBulkCost" data-completion-action>Clear cost</button></div>
+            <div class="completion-value"><label for="bulkPrice">Bulk base price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkPrice" data-completion-action>Apply price only</button><button id="clearBulkPrice" data-completion-action>Clear price</button></div>
           </div>
-          <div class="completion-tags"><span>Bulk tags to add</span><div id="bulkTags"></div><button id="applyBulkTags">Add tags only</button></div>
+          <div class="completion-tags"><span>Bulk tags to add</span><div id="bulkTags"></div><button id="applyBulkTags" data-completion-action>Add tags only</button></div>
           <p class="sub">Select multiple tags from the dropdown. Suggestions come from learned Dutchie lists and saved templates. To learn the list, use Tags in the on-page Lists tab. You can also type an exact tag name and press Enter.</p>
-          <button id="applyCompletion" class="gold-button">Apply all entered details</button>
-          <p class="sub">Use each field’s button to update it independently, or apply all entered details together. Applies to shown, selected entries. Empty inputs keep existing values; tags are added without duplicates. Review the entries, then Save all templates.</p>
+          <button id="applyCompletion" data-completion-action class="gold-button">Apply all entered details</button>
+          <p class="sub">THC value means the numeric amount; THC unit means % or mg. Clear empties only that template field, regardless of the fill-blank setting. Blank template fields are skipped by autofill. Use each field’s button to update it independently, or apply all entered details together. Applies to shown, selected entries. Empty inputs keep existing values; tags are added without duplicates. Review the entries, then Save all templates.</p>
         </div>
       </section>
       <button id="toggleTools" class="embedded-tools-toggle" aria-expanded="false">Shared edits & add products</button>

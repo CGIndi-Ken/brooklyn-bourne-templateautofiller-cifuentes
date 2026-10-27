@@ -21,7 +21,7 @@ assert.equal(result.templates['Runtz (H)'].onlineDescription,'');
 assert.equal(result.templates['Runtz (H)'].strain,'');
 assert.equal(result.templates['Grape Gas (I)'].onlineDescription,'Reviewed grape description');
 assert.equal(result.templates['Grape Gas (I)'].strain,'Grape Gas');
-for(const key of ['medBasePrice','cost','gramsConcentration']) assert.equal(result.templates['Runtz (H)'][key],'0');
+for(const key of ['medBasePrice','cost','gramsConcentration']) assert.equal(result.templates['Runtz (H)'][key],'');
 assert.equal(shared.cost,'7');
 assert.equal(shared.medBasePrice,'14');
 assert.equal(shared.gramsConcentration,'1.5');

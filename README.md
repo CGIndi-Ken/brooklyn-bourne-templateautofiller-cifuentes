@@ -31,13 +31,13 @@ Use **Brand directory** to save a vendor and multiple brands. Vendor name sugges
 
 To remove a saved vendor, select it in **Brand directory**, click **Delete vendor**, and confirm. This removes its directory pairings and keeps saved product templates. Learned suggestions and template values remain available; **Remember pairs from saved templates** can add those pairings again.
 
-Saved templates and restored drafts keep their existing pricing and grams; starting a new template resets these three values to 0. To replace the zero defaults with bulk pricing, uncheck **Only fill blank THC, cost and price**.
+Saved templates and restored drafts keep their existing pricing and grams; starting a new template clears these three values. You can fill them later using the bulk controls.
 
 The main template editor suggests that vendor's brands. Select a vendor and check its brands to create a separate bulk window with one starting entry per selected brand; use Add product or Duplicate settings for more. Shared settings from the template form carry into batches launched from the popup directory. Pairings are included in template exports and merged on import. Saved workspace drafts recover unfinished batches after reload.
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
 
-You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost, base price and grams/concentration always start at **0** for new templates, including bulk creation, copies and new brand entries. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
+You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost, base price and grams/concentration always start **blank** for new templates, including bulk creation, copies and new brand entries. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
@@ -47,7 +47,7 @@ Save a template with THC, tags, cost or base price blank when those details are 
 
 In **Finish THC, tags & pricing**, enter the values you now have and choose multiple tags from the searchable dropdown. Tags use learned Dutchie options and tags in saved templates; learn them from the on-page **Lists** tab, or type an exact tag name and press Enter. Selected tags appear as removable chips.
 
-Select the products to update, optionally search to narrow them, and use **Apply THC only**, **Apply cost only**, **Apply price only**, or **Add tags only**. Each button ignores the other inputs, even if they still contain values. **Apply all entered details** remains available for combined updates. Empty inputs leave existing values alone. By default THC, cost and price fill only blank fields; uncheck **Only fill blank THC, cost and price** to replace existing values. Choose **%** or **mg** alongside THC. Tags are added to existing tags without duplicates. To replace or clear tags instead, choose **Tags** in **Apply to selected**.
+Select the products to update, optionally search to narrow them, and use **Apply THC value only**, **Apply THC unit only**, **Apply cost only**, **Apply price only**, or **Add tags only**. Each button ignores the other inputs, even if they still contain values. **Apply all entered details** remains available for combined updates. Empty inputs leave existing values alone. By default THC, cost and price fill only blank fields; uncheck **Only fill blank THC, cost and price** to replace existing values. Choose **%** or **mg** alongside THC. Tags are added to existing tags without duplicates. To replace or clear tags instead, choose **Tags** in **Apply to selected**.
 
 Each product also shows THC, THC unit, tags, cost and base price directly, so different values can be edited individually. Completion inputs and product edits are remembered as a local draft. Review the changes and click **Save all templates** before exporting or autofilling. Other template fields are preserved.
 
@@ -67,3 +67,5 @@ node --test --test-concurrency=2 *.test.cjs
 ```
 
 Use `PLAYWRIGHT_MODULE=playwright` when the package resolves normally. Alternatively, omit `TEST_BROWSER_EXECUTABLE` to use installed Chrome, or select a Playwright browser with `TEST_BROWSER_CHANNEL`. Browser fixtures run on a temporary local HTTP server with mocked extension storage; they do not contact Dutchie. After changes, reload the unpacked extension and verify autofill on the actual product form.
+
+THC amount and THC unit (%/mg) have independent apply and clear buttons, as do cost and price. Clear empties only that field on checked, shown entries, even with fill-blanks enabled. Hidden and unchecked products are preserved. The selected count is shown above the controls, and actions are disabled when it is zero. Click **Save all templates** to persist clears.

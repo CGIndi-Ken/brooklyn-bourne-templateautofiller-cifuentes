@@ -73,6 +73,8 @@ async function main() {
     assert.deepEqual(await tags(kept),[]);
     await page.locator('#applyBulkThc').click();
     assert.equal(await value(missing,'thc'),'25');
+    assert.equal(await value(missing,'thcUnit'),'','THC value action must not set its unit');
+    await page.locator('#applyBulkThcUnit').click();
     assert.equal(await value(missing,'thcUnit'),'%');
     assert.deepEqual(await tags(kept),[]);
     await page.locator('#applyBulkTags').click();
@@ -211,6 +213,32 @@ async function main() {
     assert.deepEqual(await tags(missing),['Fresh']);
     assert.equal(await page.locator('#bulkFillBlanks').isChecked(),false);
     assert.equal(await page.locator('#bulkThcUnit').inputValue(),'mg');
+    // All independent apply/clear actions use exactly the checked, visible scope.
+    await page.locator('#entrySearch').fill('Target');
+    await kept.getByRole('checkbox',{name:'Select entry',exact:true}).uncheck();
+    assert.match(await page.locator('#completionSelection').textContent(),/^1 shown product selected/);
+    const protectedRows=await Promise.all([kept,hidden,unchecked].map(card=>card.locator('[data-field]').evaluateAll(fields=>fields.map(el=>[el.dataset.field,el.value ?? el.textContent]))));
+    await page.locator('#bulkFillBlanks').check();
+    for(const [button,key] of [['clearBulkThc','thc'],['clearBulkThcUnit','thcUnit'],['clearBulkCost','cost'],['clearBulkPrice','medBasePrice']]) {
+      const before=await Promise.all(['thc','thcUnit','cost','medBasePrice'].map(field=>value(missing,field)));
+      await page.locator(`#${button}`).click();
+      assert.equal(await value(missing,key),'','Clear works even with only-fill-blank checked');
+      for(const [index,field] of ['thc','thcUnit','cost','medBasePrice'].entries()) if(field!==key) assert.equal(await value(missing,field),before[index]);
+    }
+    await page.locator('#bulkThc').fill('12');await page.locator('#bulkCost').fill('7');await page.locator('#bulkPrice').fill('14');
+    for(const [button,key,expected] of [['applyBulkThc','thc','12'],['applyBulkThcUnit','thcUnit','mg'],['applyBulkCost','cost','7'],['applyBulkPrice','medBasePrice','14']]) {
+      const before=await Promise.all(['thc','thcUnit','cost','medBasePrice'].map(field=>value(missing,field)));
+      await page.locator(`#${button}`).click();assert.equal(await value(missing,key),expected);
+      for(const [index,field] of ['thc','thcUnit','cost','medBasePrice'].entries()) if(field!==key) assert.equal(await value(missing,field),before[index]);
+    }
+    assert.deepEqual(await Promise.all([kept,hidden,unchecked].map(card=>card.locator('[data-field]').evaluateAll(fields=>fields.map(el=>[el.dataset.field,el.value ?? el.textContent])))),protectedRows);
+    await page.locator('#saveProducts').click();await page.waitForFunction(()=>!document.getElementById('saveProducts').disabled);
+    await page.locator('#clearBulkThc').click();await page.locator('#clearBulkThcUnit').click();await page.locator('#clearBulkCost').click();await page.locator('#clearBulkPrice').click();
+    await page.locator('#saveProducts').click();await page.waitForFunction(()=>!document.getElementById('saveProducts').disabled);
+    for(const key of ['thc','thcUnit','cost','medBasePrice']) assert.equal(storage.templates['Target missing'][key],'');
+    await missing.getByRole('checkbox',{name:'Select entry',exact:true}).uncheck();
+    assert.match(await page.locator('#completionSelection').textContent(),/^0 shown products selected/);
+    for(const id of ['applyBulkThc','applyBulkThcUnit','applyBulkCost','applyBulkPrice','clearBulkThc','clearBulkThcUnit','clearBulkCost','clearBulkPrice']) assert.equal(await page.locator(`#${id}`).isDisabled(),true);
     assert.deepEqual(errors,[]);
     console.log('Passed bulk completion loading, scoped updates, additive/replaced/cleared tags, live suggestions, numeric blanks/zero/override/validation, individual edits, live Changes, picker DOM/query preservation, partial saves and draft/reload preservation.');
   } finally {await browser.close();}

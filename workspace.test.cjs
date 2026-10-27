@@ -32,11 +32,15 @@ async function main(){
     const first=page.locator('.entry-card').nth(0),second=page.locator('.entry-card').nth(1);
     await first.locator('[data-field="name"]').fill('Brand One | Runtz | 3.5g (H)');
     await second.locator('[data-field="name"]').fill('Brand Two | Grape Gas | 3.5g (I)');
+    for(const card of [first,second]) {
+      assert.equal(await card.locator('[data-field="gramsConcentration"]').inputValue(),'');
+      await card.locator('[data-field="gramsConcentration"]').fill('3.5');
+    }
     await page.locator('#collapseAll').click();assert.equal(await page.locator('.entry-content:visible').count(),0);
     await first.getByRole('button',{name:'Expand',exact:true}).click();assert.equal(await page.locator('.entry-content:visible').count(),1);
     await page.locator('#entrySearch').fill('grape');assert.equal(await page.locator('.entry-card:visible').count(),1);assert.equal(await second.isVisible(),true);
     await page.locator('#entrySearch').fill('metro brand one');assert.equal(await page.locator('.entry-card:visible').count(),1);assert.equal(await first.isVisible(),true);
-    await page.locator('#applyField').selectOption('cost');await page.locator('#applyValue').fill('14');await page.locator('#applySelected').click();assert.equal(await first.locator('[data-field="cost"]').inputValue(),'14');assert.equal(await second.locator('[data-field="cost"]').inputValue(),'0');
+    await page.locator('#applyField').selectOption('cost');await page.locator('#applyValue').fill('14');await page.locator('#applySelected').click();assert.equal(await first.locator('[data-field="cost"]').inputValue(),'14');assert.equal(await second.locator('[data-field="cost"]').inputValue(),'');
     await page.locator('#entrySearch').fill('no matches');await page.locator('#noEntryMatches').waitFor({state:'visible'});assert.equal(await page.locator('.entry-card:visible').count(),0);
     await page.locator('#entrySearch').fill('');await page.locator('#expandAll').click();assert.equal(await page.locator('.entry-content:visible').count(),2);
     await first.getByRole('button',{name:'Minimize',exact:true}).click();await page.evaluate(()=>persistDraft());await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.entry-card').length===2);assert.equal(await page.locator('.entry-card').first().locator('.entry-content').isVisible(),false);await page.locator('#expandAll').click();
@@ -49,7 +53,7 @@ async function main(){
     assert.equal(await first.locator('[data-field="cost"]').inputValue(),'15');assert.equal(await second.locator('[data-field="cost"]').inputValue(),'15');
     await second.getByLabel('Select entry',{exact:true}).uncheck();
     await page.locator('#applyField').selectOption('medBasePrice');await page.locator('#applyValue').fill('40');await page.locator('#applySelected').click();
-    assert.equal(await first.locator('[data-field="medBasePrice"]').inputValue(),'40');assert.equal(await second.locator('[data-field="medBasePrice"]').inputValue(),'0');
+    assert.equal(await first.locator('[data-field="medBasePrice"]').inputValue(),'40');assert.equal(await second.locator('[data-field="medBasePrice"]').inputValue(),'');
     await first.getByRole('button',{name:'Changes',exact:true}).click();assert(await first.locator('.diff-table').innerText().then(t=>t.includes('Changed')&&t.includes('Kept')&&t.includes('Blank')));
     await page.locator('#saveProducts').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.startsWith('Saved 2 templates'));
     assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].onlineDescription,'Reviewed Runtz description.');assert.equal(storage.templates['Brand Two | Grape Gas | 3.5g (I)'].onlineDescription,'');

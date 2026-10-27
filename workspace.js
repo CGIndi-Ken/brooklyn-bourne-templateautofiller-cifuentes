@@ -48,15 +48,17 @@ $w("loadIncomplete").addEventListener("click",() => {
   const before=rows.size;loadKeys(keys);scheduleSave();
   setWorkspaceStatus(`Loaded ${rows.size-before} unfinished templates. Select the entries to update, then Save all templates.`);
 });
-function applyCompletion(field = "all") {
+function applyCompletion(field = "all", clear = false) {
   const changes={};
   for (const [id,key,label] of [["bulkThc","thc","THC"],["bulkCost","cost","Cost"],["bulkPrice","medBasePrice","Base price"]]) {
-    if (field !== "all" && field !== key) continue;
+    if (clear || (field !== "all" && field !== key)) continue;
     const input=$w(id), value=input.value.trim();
     if (!input.checkValidity() || (value && !Number.isFinite(Number(value)))) return setWorkspaceStatus(`${label} must be a non-negative number.`,true);
     if (value) changes[key]=value;
   }
-  const tags=field === "all" || field === "tags" ? bulkTagPicker.value().split(",").map((tag)=>tag.trim()).filter(Boolean) : [];
+  if (field === "thcUnit") changes.thcUnit=$w("bulkThcUnit").value;
+  if (clear) changes[field]="";
+  const tags=!clear && (field === "all" || field === "tags") ? bulkTagPicker.value().split(",").map((tag)=>tag.trim()).filter(Boolean) : [];
   if (!Object.keys(changes).length && !tags.length) {
     const label={thc:"a THC value",cost:"a cost",medBasePrice:"a price",tags:"tags"}[field];
     return setWorkspaceStatus(label ? `Enter or select ${label} first.` : "Enter THC, cost, price or choose tags first.",true);
@@ -64,9 +66,9 @@ function applyCompletion(field = "all") {
   let count=0;
   for (const row of rows.values()) if (row.selected && !row.element.hidden) {
     for (const [key,value] of Object.entries(changes)) {
-      if ($w("bulkFillBlanks").checked && row.values[key].trim()) continue;
+      if (!clear && $w("bulkFillBlanks").checked && row.values[key].trim()) continue;
       row.values[key]=value;
-      if (key === "thc") row.values.thcUnit=$w("bulkThcUnit").value;
+      if (key === "thc" && field === "all") row.values.thcUnit=$w("bulkThcUnit").value;
     }
     if (tags.length) {
       const merged=new Map();
@@ -75,10 +77,12 @@ function applyCompletion(field = "all") {
     }
     refreshValues(row);if(row.tab === "changes") renderPanel(row);count++;
   }
-  const label={thc:"THC",cost:"cost",medBasePrice:"price",tags:"tags",all:"details"}[field];
-  updateMetrics();scheduleSave();setWorkspaceStatus(`Applied ${label} to ${count} shown selected entries. Review them, then Save all templates.`);
+  const label={thc:"THC value",thcUnit:"THC unit",cost:"cost",medBasePrice:"price",tags:"tags",all:"details"}[field];
+  updateMetrics();scheduleSave();setWorkspaceStatus(`${clear ? "Cleared" : "Applied"} ${label} ${clear ? "on" : "to"} ${count} shown selected entries. Review them, then Save all templates.`);
 }
-for (const [id,field] of [["applyCompletion","all"],["applyBulkThc","thc"],["applyBulkCost","cost"],["applyBulkPrice","medBasePrice"],["applyBulkTags","tags"]]) $w(id).addEventListener("click",() => applyCompletion(field));
+for (const [id,field] of [["applyCompletion","all"],["applyBulkThc","thc"],["applyBulkThcUnit","thcUnit"],["applyBulkCost","cost"],["applyBulkPrice","medBasePrice"],["applyBulkTags","tags"]]) $w(id).addEventListener("click",() => applyCompletion(field));
+for (const [id,field] of [["clearBulkThc","thc"],["clearBulkThcUnit","thcUnit"],["clearBulkCost","cost"],["clearBulkPrice","medBasePrice"]]) $w(id).addEventListener("click",() => applyCompletion(field,true));
+
 function showView(view) {
   $w("productsView").hidden = view !== "products";
   $w("directoryView").hidden = view !== "directory";
@@ -182,6 +186,8 @@ function filterEntries() {
   const terms=$w("entrySearch").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   let visible=0, selected=0;
   for(const row of rows.values()) {const matches=terms.every((term)=>row.searchText.includes(term));row.element.hidden=!matches;if(matches){visible++;if(row.selected)selected++;}}
+  $w("completionSelection").textContent=`${selected} shown ${selected === 1 ? "product" : "products"} selected. Hidden and unchecked products stay unchanged.`;
+  $w("bulkCompletion").querySelectorAll("[data-completion-action]").forEach((button)=>button.disabled=selected===0);
   $w("entrySearchStatus").textContent=`Showing ${visible} of ${rows.size} entries`;
   $w("noEntryMatches").hidden=!rows.size || visible>0;
   $w("selectAll").checked=visible>0 && selected===visible;

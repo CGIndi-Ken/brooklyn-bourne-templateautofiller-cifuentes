@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Brooklyn Bourne Autofiller",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "description": "Saves product templates and fills the Dutchie create-product form, across one tab or many.",
   "permissions": ["storage"],
   "host_permissions": ["https://delta.backoffice.dutchie.com/*"],

@@ -83,7 +83,7 @@ async function main() {
     await page.getByRole('button',{name:'Create templates',exact:true}).click();
     await page.waitForFunction(()=>document.getElementById('bulkStatus').textContent.includes('Created 2 templates; skipped 1'));
     const stored=await page.evaluate(()=>JSON.parse(localStorage.testStorage).templates);
-    assert.equal(stored['Bulk Runtz (H)'].medBasePrice,'0');
+    assert.equal(stored['Bulk Runtz (H)'].medBasePrice,'');
     assert.equal(stored['Bulk Runtz (H)'].onlineDescription,'');
     assert.equal(stored['Bulk Grape (I)'].onlineDescription,'Grape description');
     assert.equal(stored['Runtz test'].onlineDescription,'Reviewed description');
