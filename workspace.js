@@ -7,10 +7,11 @@ const embedded = params.has("embedded");
 document.body.classList.toggle("embedded", embedded);
 initThemeSelector($w("workspaceTheme"), document.documentElement);
 const draftKey = `productWorkspace:${params.get("launch") || params.get("batch") || (embedded ? "embedded" : "main")}`;
-const TOP_FIELDS = ["name", "vendor", "brand", "medBasePrice", "cost", "gramsConcentration", "strain"];
+const TOP_FIELDS = ["name", "vendor", "brand", "gramsConcentration", "thc", "thcUnit", "cost", "medBasePrice", "strain", "tags"];
 const FIELD_MAP = Object.fromEntries(WORKSPACE_FIELDS.map((def) => [def.key, def]));
 const rows = new Map();
 let templates = {}, directory = [], learned = {}, shared = {}, recent = null;
+let tagOptions = [];
 let deletingVendor = false;
 let activeVendor = "", saveTimer, saving = false, initialized = false, workspaceDirty = false, lastWorkspaceDraft = "";
 const read = async (key) => (await chrome.storage.local.get(key))[key];
@@ -20,6 +21,58 @@ function setWorkspaceStatus(text, error = false) { $w("workspaceStatus").textCon
 const brandPicker = createBrandPicker($w("brandPicker"),$w("vendorBrands"),$w("brandOptions"),$w("selectedBrands"),
   () => [...(learned.brand || []),...directory.flatMap((entry)=>entry.brands),...Object.values(templates).map((template)=>template.brand).filter(Boolean)],
   () => { $w("createBrandBatch").disabled=true;setWorkspaceStatus("Save this pairing to use the updated brand selection in a batch."); });
+const bulkTagPicker = createTagPicker("", () => tagOptions, scheduleSave);
+$w("bulkTags").append(bulkTagPicker.element);
+const applyTagPicker = createTagPicker("", () => tagOptions, () => {});
+$w("applyTagsValue").append(applyTagPicker.element);
+function refreshTagOptions() {
+  const next = [...new Set([...(learned.tags || []), ...Object.values(templates).flatMap((template) => String(template.tags || "").split(","))].map((tag) => tag.trim()).filter(Boolean))];
+  if (JSON.stringify(next) === JSON.stringify(tagOptions)) return;
+  tagOptions=next;
+  bulkTagPicker.refresh();applyTagPicker.refresh();
+  for (const row of rows.values()) row.tagPicker?.refresh();
+}
+function completionDraft() {
+  return {thc:$w("bulkThc").value, thcUnit:$w("bulkThcUnit").value, cost:$w("bulkCost").value, medBasePrice:$w("bulkPrice").value, tags:bulkTagPicker.value(), fillBlanks:$w("bulkFillBlanks").checked};
+}
+function restoreCompletion(draft) {
+  if (!draft) return;
+  for (const [id,key] of [["bulkThc","thc"],["bulkCost","cost"],["bulkPrice","medBasePrice"]]) $w(id).value=draft[key] ?? "";
+  $w("bulkThcUnit").value=draft.thcUnit === "mg" ? "mg" : "%";
+  $w("bulkFillBlanks").checked=draft.fillBlanks !== false;
+  bulkTagPicker.set(draft.tags || "");
+}
+for (const id of ["bulkThc","bulkThcUnit","bulkCost","bulkPrice","bulkFillBlanks"]) $w(id).addEventListener("input",scheduleSave);
+$w("loadIncomplete").addEventListener("click",() => {
+  const keys=Object.keys(templates).filter((key)=>["thc","cost","medBasePrice","tags"].some((field)=>!String(templates[key][field] ?? "").trim()));
+  const before=rows.size;loadKeys(keys);scheduleSave();
+  setWorkspaceStatus(`Loaded ${rows.size-before} unfinished templates. Select the entries to update, then Save all templates.`);
+});
+$w("applyCompletion").addEventListener("click",() => {
+  const changes={};
+  for (const [id,key,label] of [["bulkThc","thc","THC"],["bulkCost","cost","Cost"],["bulkPrice","medBasePrice","Base price"]]) {
+    const input=$w(id), value=input.value.trim();
+    if (!input.checkValidity() || (value && !Number.isFinite(Number(value)))) return setWorkspaceStatus(`${label} must be a non-negative number.`,true);
+    if (value) changes[key]=value;
+  }
+  const tags=bulkTagPicker.value().split(",").map((tag)=>tag.trim()).filter(Boolean);
+  if (!Object.keys(changes).length && !tags.length) return setWorkspaceStatus("Enter THC, cost, price or choose tags first.",true);
+  let count=0;
+  for (const row of rows.values()) if (row.selected && !row.element.hidden) {
+    for (const [key,value] of Object.entries(changes)) {
+      if ($w("bulkFillBlanks").checked && row.values[key].trim()) continue;
+      row.values[key]=value;
+      if (key === "thc") row.values.thcUnit=$w("bulkThcUnit").value;
+    }
+    if (tags.length) {
+      const merged=new Map();
+      for (const tag of [...row.values.tags.split(","),...tags].map((tag)=>tag.trim()).filter(Boolean)) if(!merged.has(tag.toLowerCase())) merged.set(tag.toLowerCase(),tag);
+      row.values.tags=[...merged.values()].join(", ");
+    }
+    refreshValues(row);if(row.tab === "changes") renderPanel(row);count++;
+  }
+  updateMetrics();scheduleSave();setWorkspaceStatus(`Applied details to ${count} shown selected entries. Review them, then Save all templates.`);
+});
 function showView(view) {
   $w("productsView").hidden = view !== "products";
   $w("directoryView").hidden = view !== "directory";
@@ -29,7 +82,7 @@ function showView(view) {
 document.querySelector(".workspace-nav").addEventListener("click", (event) => { if (event.target.dataset.view) showView(event.target.dataset.view); });
 $w("toggleTools").addEventListener("click",()=>{const open=document.body.classList.toggle("tools-open");$w("toggleTools").setAttribute("aria-expanded",String(open));});
 
-function serializeWorkspace() { return {shared, rows:[...rows.values()].map(({id,key,values,baseline,stored,selected,tab,collapsed}) => ({id,key,values,baseline,stored,selected,tab,collapsed})), quickNames:$w("quickNames").value, search:$w("entrySearch").value}; }
+function serializeWorkspace() { return {shared, completion:completionDraft(), rows:[...rows.values()].map(({id,key,values,baseline,stored,selected,tab,collapsed}) => ({id,key,values,baseline,stored,selected,tab,collapsed})), quickNames:$w("quickNames").value, search:$w("entrySearch").value}; }
 function scheduleSave() { workspaceDirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(() => persistDraft().catch((e) => setWorkspaceStatus(`Draft could not be saved: ${e.message}`, true)), 250); }
 let draftWrite = Promise.resolve();
 function persistDraft() {
@@ -63,8 +116,17 @@ function loadKeys(keys, baseline) {
   updateMetrics();
 }
 function choicesFor(def) { return [...new Set([...(learned[def.key] || []), ...(def.options || [])])]; }
-function fieldControl(def, values) {
-  const label = node("label", def.label + (def.required ? " *" : ""));
+function fieldControl(def, values, row) {
+  const label = node(def.key === "tags" ? "div" : "label", def.label + (def.required ? " *" : ""));
+  if (def.key === "tags") {
+    label.className="tag-field";
+    row.tagPicker=createTagPicker(values.tags, () => tagOptions, (value) => {
+      row.values.tags=value;updateRow(row);if(row.tab === "changes") renderPanel(row);updateMetrics();scheduleSave();
+    });
+    row.tagPicker.element.dataset.field="tags";
+    label.append(row.tagPicker.element,node("span","","field-state"));
+    return label;
+  }
   let input;
   if (def.type === "select" && choicesFor(def).length) {
     input = document.createElement("select");
@@ -96,7 +158,7 @@ function renderRow(row) {
   const remove = node("button", "Remove"); remove.dataset.action = "remove"; remove.title = "Remove from this workspace; saved templates are kept";
   header.append(select,title,badge,collapse,duplicate,reload,remove);
   const content = node("div", "", "entry-content");content.id=`entry-content-${row.id}`; const grid = node("div", "", "product-grid");
-  for (const key of TOP_FIELDS) grid.append(fieldControl(FIELD_MAP[key], row.values));
+  for (const key of TOP_FIELDS) grid.append(fieldControl(FIELD_MAP[key], row.values,row));
   const tabs = node("div", "", "editor-tabs");
   for (const [id,label] of [["details","Details"],["description","Online description"],["changes","Changes"]]) {
     const button = node("button",label); button.dataset.action = "tab"; button.dataset.tab = id; button.setAttribute("aria-expanded", String(row.tab === id)); tabs.append(button);
@@ -185,6 +247,7 @@ function updateMetrics() {
 function refreshValues(row) {
   for (const input of row.element.querySelectorAll("[data-field]")) {
     const key = input.dataset.field;
+    if (key === "tags") {if(row.tagPicker.value() !== row.values.tags) row.tagPicker.set(row.values.tags);continue;}
     if (input.type === "checkbox") input.checked = !!row.values[key];
     else {
       const value = row.values[key] || "";
@@ -252,12 +315,16 @@ for (const [key,label] of [["copyToLocation","Copy to Location details"],["categ
 function updateApplyChoices() {
   const key = $w("applyField").value; const def = FIELD_MAP[key];
   const options = WORKSPACE_FLAGS.includes(key) ? ["Yes","No"] : def ? choicesFor(def) : [];
+  const isTags=key === "tags";
+  $w("applyValue").hidden=isTags;$w("applyTagsValue").hidden=!isTags;
+  $w("applyValueLabel").htmlFor=isTags ? applyTagPicker.element.querySelector("input").id : "applyValue";
+  applyTagPicker.set("");
   $w("applyChoices").replaceChildren(...options.map((value) => new Option(value,value)));
   $w("applyValue").value = ""; $w("applyValue").placeholder = WORKSPACE_FLAGS.includes(key) ? "Yes or No" : "Value for selected entries";
 }
 $w("applyField").addEventListener("change",updateApplyChoices);
 $w("applySelected").addEventListener("click",() => {
-  const key = $w("applyField").value; let value = $w("clearValue").checked ? "" : $w("applyValue").value.trim();
+  const key = $w("applyField").value; let value = $w("clearValue").checked ? "" : key === "tags" ? applyTagPicker.value() : $w("applyValue").value.trim();
   if (WORKSPACE_FLAGS.includes(key)) {
     if (!/^(yes|no)$/i.test(value)) return setWorkspaceStatus("Enter Yes or No for this setting.",true);
     value = /^yes$/i.test(value);
@@ -404,11 +471,11 @@ $w("openFull").addEventListener("click",async()=>{try{await openProductWorkspace
 async function boot() {
   [templates,directory,learned,recent]=await Promise.all([read("templates"),read("brandDirectory"),read("options"),read("lastBulkBatch")]);
   templates ||= {};directory ||= [];learned ||= {};
-  renderDirectory();renderSavedChoices();updateApplyChoices();
+  renderDirectory();renderSavedChoices();refreshTagOptions();updateApplyChoices();
   const launchId=params.get("launch"); const launch=launchId ? await read(`workspaceLaunch:${launchId}`) : null;
   const draft=launch?.workspace || await read(draftKey);
   if(draft) {
-    shared=draft.shared || {}; $w("quickNames").value=draft.quickNames || "";
+    shared=draft.shared || {}; restoreCompletion(draft.completion); $w("quickNames").value=draft.quickNames || "";
     $w("entrySearch").value=draft.search || "";
     for(const row of draft.rows || []) addRow(row.values,row);
   } else if(launch?.brands) {
@@ -425,7 +492,7 @@ boot().catch((e)=>setWorkspaceStatus(`Workspace could not load: ${e.message}`,tr
 chrome.storage.onChanged.addListener((changes,area)=>{
   if(area!=="local" || !initialized) return;
   if(changes.brandDirectory) {directory=changes.brandDirectory.newValue || [];renderDirectory();}
-  if(changes.templates) {templates=changes.templates.newValue || {};renderSavedChoices();renderDirectoryLists();}
-  if(changes.options) {learned=changes.options.newValue || {};renderDirectoryLists();}
+  if(changes.templates) {templates=changes.templates.newValue || {};renderSavedChoices();renderDirectoryLists();refreshTagOptions();}
+  if(changes.options) {learned=changes.options.newValue || {};renderDirectoryLists();refreshTagOptions();}
   if(changes.lastBulkBatch) recent=changes.lastBulkBatch.newValue;
 });

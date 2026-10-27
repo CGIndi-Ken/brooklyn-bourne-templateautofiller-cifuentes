@@ -7,6 +7,24 @@
   <main>
     <section id="productsView">
       <div class="page-heading"><div><h1>Make the whole batch.</h1><p class="sub">Shared settings, individual products. Changes stay visible until you finish.</p></div><button id="openFull">Open separate window</button></div>
+      <section class="card completion-card" id="bulkCompletion" aria-label="Finish THC, tags and pricing">
+        <div class="section-heading">Finish THC, tags & pricing</div>
+        <div class="fields">
+          <p class="sub">Create templates now and fill these details when they arrive. Load unfinished templates, then select the products to update below.</p>
+          <button id="loadIncomplete">Load unfinished templates</button>
+          <div class="completion-grid">
+            <label for="bulkThc">THC content<input id="bulkThc" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
+            <label for="bulkThcUnit">THC unit<select id="bulkThcUnit"><option value="%">%</option><option value="mg">mg</option></select></label>
+            <label for="bulkCost">Cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
+            <label for="bulkPrice">Base price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
+          </div>
+          <div class="completion-tags"><span>Tags to add</span><div id="bulkTags"></div></div>
+          <p class="sub">Select multiple tags from the dropdown. Suggestions come from learned Dutchie lists and saved templates. To learn the list, use Tags in the on-page Lists tab. You can also type an exact tag name and press Enter.</p>
+          <label class="check"><input id="bulkFillBlanks" type="checkbox" checked>Only fill blank THC, cost and price</label>
+          <button id="applyCompletion" class="gold-button">Apply details to selected entries</button>
+          <p class="sub">Applies to shown, selected entries. Empty inputs keep existing values; tags are added without duplicates. Review the entries, then Save all templates.</p>
+        </div>
+      </section>
       <button id="toggleTools" class="embedded-tools-toggle" aria-expanded="false">Shared edits & add products</button>
       <div class="metrics" id="metrics" aria-live="polite"></div>
       <div class="workspace-grid">
@@ -17,10 +35,10 @@
             <button id="addEntry">+ Add product</button>
             <label for="quickNames">Or paste product names</label><textarea id="quickNames" rows="3" placeholder="Product | Runtz | 3.5g (H)&#10;Product | Grape Gas | 3.5g (I)"></textarea><button id="addNames">Add names</button>
           </div></section>
-          <section class="card"><div class="section-heading">Apply to selected</div><div class="fields">
+          <section class="card apply-card"><div class="section-heading">Apply to selected</div><div class="fields">
             <label for="sharedSource">Use settings from a template</label><select id="sharedSource"></select><button id="useSource">Use for new entries</button>
             <label for="applyField">Field</label><select id="applyField"></select>
-            <label for="applyValue">Value</label><input id="applyValue" placeholder="Value for selected entries" list="applyChoices"><datalist id="applyChoices"></datalist>
+            <label for="applyValue" id="applyValueLabel">Value</label><div id="applyTagsValue" hidden></div><input id="applyValue" placeholder="Value for selected entries" list="applyChoices"><datalist id="applyChoices"></datalist>
             <label class="check"><input id="clearValue" type="checkbox">Clear this field instead</label>
             <button id="applySelected">Apply to selected entries</button><p class="sub">Other fields stay as they are. Locked category presets still apply.</p>
           </div></section>
@@ -36,6 +54,6 @@
     </section>
   </main>
   <footer class="workspace-footer"><span id="workspaceStatus" role="status">Ready.</span><button id="saveProducts" class="gold-button">Save all templates</button></footer>
-  <script src="theme.js"></script><script src="fields.js"></script><script src="description.js"></script><script src="bulk.js"></script><script src="workspace-model.js"></script><script src="brand-picker.js"></script><script src="workspace.js"></script>
+  <script src="theme.js"></script><script src="fields.js"></script><script src="description.js"></script><script src="bulk.js"></script><script src="workspace-model.js"></script><script src="brand-picker.js"></script><script src="tag-picker.js"></script><script src="workspace.js"></script>
 </body></html>
 

@@ -39,6 +39,16 @@ You can also paste up to three tab-separated columns from a spreadsheet, without
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
+## Finish THC, tags and pricing later
+
+Save a template with THC, tags, cost or base price blank when those details are not available. In **Bulk editor**, use **Load unfinished templates** to bring back saved templates missing any of these values. Existing workspace edits are kept.
+
+In **Finish THC, tags & pricing**, enter the values you now have and choose multiple tags from the searchable dropdown. Tags use learned Dutchie options and tags in saved templates; learn them from the on-page **Lists** tab, or type an exact tag name and press Enter. Selected tags appear as removable chips.
+
+Select the products to update, optionally search to narrow them, and click **Apply details to selected entries**. Empty inputs leave existing values alone. By default THC, cost and price fill only blank fields; uncheck **Only fill blank THC, cost and price** to replace existing values. Choose **%** or **mg** alongside THC. Tags are added to existing tags without duplicates. To replace or clear tags instead, choose **Tags** in **Apply to selected**.
+
+Each product also shows THC, THC unit, tags, cost and base price directly, so different values can be edited individually. Completion inputs and product edits are remembered as a local draft. Review the changes and click **Save all templates** before exporting or autofilling. Other template fields are preserved.
+
 ## Performance
 
 The panel responds to product-form mounting and removal rather than polling while idle. Draft writes are grouped during typing and flushed when leaving the field or popup; unchanged drafts are not written again. Already-correct text fields are skipped to avoid unnecessary input events. Dropdown selection and SKU response waits retain their reliability checks.
