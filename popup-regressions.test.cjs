@@ -65,10 +65,10 @@ async function main() {
       await chrome.storage.local.set({templates});
       await refresh();
     });
-    await page.locator('#templateSelect').selectOption('Vendor A');
+    await page.locator('#templateSelect').selectOption('Vendor A',{force:true});
     await page.waitForFunction(() => document.getElementById('f_vendor').value==='Vendor A');
     assert.deepEqual(await page.locator('#directoryBrandHints option').allTextContents(), ['A']);
-    await page.locator('#templateSelect').selectOption('Vendor B');
+    await page.locator('#templateSelect').selectOption('Vendor B',{force:true});
     await page.waitForFunction(() => document.getElementById('f_vendor').value==='Vendor B');
     assert.deepEqual(await page.locator('#directoryBrandHints option').allTextContents(), ['B']);
     assert.equal(await page.evaluate(() => {

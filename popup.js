@@ -3,6 +3,7 @@ themeStyle.textContent = AUTOFILL_THEME + AUTOFILL_LAYOUT;
 document.head.prepend(themeStyle);
 const $ = (id) => document.getElementById(id);
 initThemeSelector($("themeSelect"), document.documentElement);
+const templatePicker=createTemplatePicker($("templateSelect"));
 const DEFS = Object.fromEntries(FIELD_DEFS.map((d) => [d.key, d]));
 const STORED_DEFS = FIELD_DEFS.filter((d) => !d.fixed && !d.copyOf);
 let learned = {};
@@ -309,6 +310,7 @@ function clearTemplateForm() {
   setCategoryPresetUnlocked(false);
   $("templateName").value = "";
   $("templateSelect").value = "";
+  templatePicker.sync();
   updateCounts();
   resetDescriptionPrompt();
   $("bulkNames").value = "";
@@ -328,13 +330,17 @@ function toast(msg) {
 }
 
 async function refresh() {
-  const templates = await getTemplates();
+  refreshTemplateChoices(await getTemplates());
+}
+function refreshTemplateChoices(templates) {
   const select = $("templateSelect");
   const selected = select.value;
   select.replaceChildren(new Option("Select a saved template", ""),
     ...Object.keys(templates).map((name) => new Option(name, name)));
   select.value = Object.hasOwn(templates, selected) ? selected : "";
+  templatePicker.update(templates);
 }
+chrome.storage.onChanged.addListener((changes,area)=>{if(area === "local" && changes.templates) refreshTemplateChoices(changes.templates.newValue || {});});
 
 $("templateSelect").addEventListener("change", async () => loadSelected(await getTemplates()));
 function onFormEdit(event) {
@@ -545,5 +551,6 @@ $("importFile").addEventListener("change", async () => {
     $("bulkNames").value = templateDraft.bulkNames || "";
     updateCounts();
   }
+  templatePicker.sync();
   document.dispatchEvent(new Event("templateEditorReady"));
 })();

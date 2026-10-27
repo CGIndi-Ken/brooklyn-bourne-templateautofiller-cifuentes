@@ -19,12 +19,12 @@ async function main() {
     for(const key of fields) assert.equal(await page.locator(`#f_${key}`).inputValue(),'');
     const source={name:'Saved product',cost:'7',medBasePrice:'14',gramsConcentration:'1.5',vendor:'Vendor',brand:'Brand'};
     await page.evaluate(async source=>{await chrome.storage.local.set({templates:{Saved:source}});await refresh();},source);
-    await page.locator('#templateSelect').selectOption('Saved');
+    await page.locator('#templateSelect').selectOption('Saved',{force:true});
     await page.waitForFunction(()=>document.getElementById('f_cost').value==='7');
     for(const [key,value] of Object.entries(source).filter(([key])=>fields.includes(key))) assert.equal(await page.locator(`#f_${key}`).inputValue(),value);
     await page.locator('#newBtn').click();
     for(const key of fields) assert.equal(await page.locator(`#f_${key}`).inputValue(),'');
-    await page.locator('#templateSelect').selectOption('Saved');
+    await page.locator('#templateSelect').selectOption('Saved',{force:true});
     await page.waitForFunction(()=>document.getElementById('f_cost').value==='7');
     await page.locator('#copyBtn').click();
     for(const key of fields) assert.equal(await page.locator(`#f_${key}`).inputValue(),'');

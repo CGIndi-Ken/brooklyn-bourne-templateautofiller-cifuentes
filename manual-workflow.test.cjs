@@ -61,7 +61,7 @@ async function main() {
     await page.getByRole('button',{name:'Save template',exact:true}).click();
     await page.waitForFunction(() => JSON.parse(localStorage.testStorage).templates?.['Runtz test']?.onlineDescription === 'Reviewed description');
     await page.reload();
-    await page.locator('#templateSelect').selectOption('Runtz test');
+    await page.locator('#templateSelect').selectOption('Runtz test',{force:true});
     await page.waitForFunction(() => document.getElementById('f_onlineDescription').value === 'Reviewed description');
     assert.equal(await page.locator('#f_onlineDescription').getAttribute('maxlength'),'2500');
     await page.evaluate(() => Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied');}}, configurable:true}));

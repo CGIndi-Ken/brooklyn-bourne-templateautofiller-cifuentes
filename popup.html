@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Brooklyn Bourne Autofiller</title>
+  <link rel="stylesheet" href="template-picker.css">
 </head>
 <body class="app-surface">
   <div class="head"><span class="brand">Brooklyn Bourne</span><span class="brand-sub">Autofiller</span></div>
@@ -13,11 +14,17 @@
   <div class="bar">
     <div class="theme-picker"><label for="themeSelect">Theme</label><select id="themeSelect" aria-label="Theme"></select></div>
     <div class="line">
-      <select id="templateSelect" aria-label="Saved templates"></select>
+      <select id="templateSelect" aria-label="Saved templates" hidden></select>
+      <button id="templatePickerToggle" aria-expanded="false" aria-controls="templatePickerPanel">Choose a saved template…</button>
       <button id="newBtn" title="Start a blank template">New</button>
       <button id="copyBtn" title="Copy the current template under a new name">Copy</button>
       <button id="deleteBtn" title="Delete the selected template">Delete</button>
     </div>
+    <section id="templatePickerPanel" aria-label="Choose a saved template" hidden>
+      <input id="templatePickerSearch" type="search" aria-label="Search saved templates" placeholder="Search product, strain, brand or vendor…">
+      <div class="template-picker-tools"><select id="templatePickerSort" aria-label="Sort templates"><option value="asc">A–Z</option><option value="desc">Z–A</option></select><button id="templatePickerCollapse">Condense all</button><button id="templatePickerExpand">Expand all</button></div>
+      <p id="templatePickerStatus" role="status"></p><div id="templatePickerResults"></div>
+    </section>
     <input id="templateName" placeholder="Template name, e.g. Infused pre-roll 7g" aria-label="Template name">
   </div>
 
@@ -74,6 +81,7 @@
   <script src="description.js"></script>
   <script src="bulk.js"></script>
   <script src="workspace-model.js"></script>
+  <script src="template-picker.js"></script>
   <script src="popup.js"></script>
   <script src="popup-views.js"></script>
 </body>
