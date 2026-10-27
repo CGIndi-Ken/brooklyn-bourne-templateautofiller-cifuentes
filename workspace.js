@@ -48,15 +48,19 @@ $w("loadIncomplete").addEventListener("click",() => {
   const before=rows.size;loadKeys(keys);scheduleSave();
   setWorkspaceStatus(`Loaded ${rows.size-before} unfinished templates. Select the entries to update, then Save all templates.`);
 });
-$w("applyCompletion").addEventListener("click",() => {
+function applyCompletion(field = "all") {
   const changes={};
   for (const [id,key,label] of [["bulkThc","thc","THC"],["bulkCost","cost","Cost"],["bulkPrice","medBasePrice","Base price"]]) {
+    if (field !== "all" && field !== key) continue;
     const input=$w(id), value=input.value.trim();
     if (!input.checkValidity() || (value && !Number.isFinite(Number(value)))) return setWorkspaceStatus(`${label} must be a non-negative number.`,true);
     if (value) changes[key]=value;
   }
-  const tags=bulkTagPicker.value().split(",").map((tag)=>tag.trim()).filter(Boolean);
-  if (!Object.keys(changes).length && !tags.length) return setWorkspaceStatus("Enter THC, cost, price or choose tags first.",true);
+  const tags=field === "all" || field === "tags" ? bulkTagPicker.value().split(",").map((tag)=>tag.trim()).filter(Boolean) : [];
+  if (!Object.keys(changes).length && !tags.length) {
+    const label={thc:"a THC value",cost:"a cost",medBasePrice:"a price",tags:"tags"}[field];
+    return setWorkspaceStatus(label ? `Enter or select ${label} first.` : "Enter THC, cost, price or choose tags first.",true);
+  }
   let count=0;
   for (const row of rows.values()) if (row.selected && !row.element.hidden) {
     for (const [key,value] of Object.entries(changes)) {
@@ -71,8 +75,10 @@ $w("applyCompletion").addEventListener("click",() => {
     }
     refreshValues(row);if(row.tab === "changes") renderPanel(row);count++;
   }
-  updateMetrics();scheduleSave();setWorkspaceStatus(`Applied details to ${count} shown selected entries. Review them, then Save all templates.`);
-});
+  const label={thc:"THC",cost:"cost",medBasePrice:"price",tags:"tags",all:"details"}[field];
+  updateMetrics();scheduleSave();setWorkspaceStatus(`Applied ${label} to ${count} shown selected entries. Review them, then Save all templates.`);
+}
+for (const [id,field] of [["applyCompletion","all"],["applyBulkThc","thc"],["applyBulkCost","cost"],["applyBulkPrice","medBasePrice"],["applyBulkTags","tags"]]) $w(id).addEventListener("click",() => applyCompletion(field));
 function showView(view) {
   $w("productsView").hidden = view !== "products";
   $w("directoryView").hidden = view !== "directory";

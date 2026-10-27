@@ -12,17 +12,19 @@
         <div class="fields">
           <p class="sub">Create templates now and fill these details when they arrive. Load unfinished templates, then select the products to update below.</p>
           <button id="loadIncomplete">Load unfinished templates</button>
-          <div class="completion-grid">
-            <label for="bulkThc">THC content<input id="bulkThc" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
-            <label for="bulkThcUnit">THC unit<select id="bulkThcUnit"><option value="%">%</option><option value="mg">mg</option></select></label>
-            <label for="bulkCost">Cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
-            <label for="bulkPrice">Base price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
-          </div>
-          <div class="completion-tags"><span>Tags to add</span><div id="bulkTags"></div></div>
-          <p class="sub">Select multiple tags from the dropdown. Suggestions come from learned Dutchie lists and saved templates. To learn the list, use Tags in the on-page Lists tab. You can also type an exact tag name and press Enter.</p>
           <label class="check"><input id="bulkFillBlanks" type="checkbox" checked>Only fill blank THC, cost and price</label>
-          <button id="applyCompletion" class="gold-button">Apply details to selected entries</button>
-          <p class="sub">Applies to shown, selected entries. Empty inputs keep existing values; tags are added without duplicates. Review the entries, then Save all templates.</p>
+          <div class="completion-grid">
+            <div class="completion-thc"><div class="completion-thc-inputs">
+              <label for="bulkThc">Bulk THC<input id="bulkThc" type="number" min="0" step="any" placeholder="Leave unchanged"></label>
+              <label for="bulkThcUnit">THC unit<select id="bulkThcUnit"><option value="%">%</option><option value="mg">mg</option></select></label>
+            </div><button id="applyBulkThc">Apply THC only</button></div>
+            <div class="completion-value"><label for="bulkCost">Bulk cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkCost">Apply cost only</button></div>
+            <div class="completion-value"><label for="bulkPrice">Bulk base price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label><button id="applyBulkPrice">Apply price only</button></div>
+          </div>
+          <div class="completion-tags"><span>Bulk tags to add</span><div id="bulkTags"></div><button id="applyBulkTags">Add tags only</button></div>
+          <p class="sub">Select multiple tags from the dropdown. Suggestions come from learned Dutchie lists and saved templates. To learn the list, use Tags in the on-page Lists tab. You can also type an exact tag name and press Enter.</p>
+          <button id="applyCompletion" class="gold-button">Apply all entered details</button>
+          <p class="sub">Use each field’s button to update it independently, or apply all entered details together. Applies to shown, selected entries. Empty inputs keep existing values; tags are added without duplicates. Review the entries, then Save all templates.</p>
         </div>
       </section>
       <button id="toggleTools" class="embedded-tools-toggle" aria-expanded="false">Shared edits & add products</button>

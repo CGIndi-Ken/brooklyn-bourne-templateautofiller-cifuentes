@@ -61,6 +61,22 @@ async function main() {
     await page.locator('#bulkPrice').fill('30');
     await pickTag(page.locator('#bulkTags'),'Medical');
     await pickTag(page.locator('#bulkTags'),'Relaxed');
+    // Each independent action ignores the other populated inputs and selected tags.
+    await page.locator('#applyBulkCost').click();
+    assert.equal(await value(missing,'cost'),'10');
+    assert.equal(await value(missing,'thc'),'');
+    assert.equal(await value(missing,'medBasePrice'),'');
+    assert.deepEqual(await tags(missing),['Medical']);
+    await page.locator('#applyBulkPrice').click();
+    assert.equal(await value(missing,'medBasePrice'),'30');
+    assert.equal(await value(missing,'thc'),'');
+    assert.deepEqual(await tags(kept),[]);
+    await page.locator('#applyBulkThc').click();
+    assert.equal(await value(missing,'thc'),'25');
+    assert.equal(await value(missing,'thcUnit'),'%');
+    assert.deepEqual(await tags(kept),[]);
+    await page.locator('#applyBulkTags').click();
+    assert.deepEqual(await tags(kept),['Medical','Relaxed']);
     await page.locator('#applyCompletion').click();
     assert.equal(await value(missing,'thc'),'25');
     assert.equal(await value(missing,'thcUnit'),'%');
@@ -106,6 +122,18 @@ async function main() {
     await page.locator('#applyCompletion').click();
     await page.waitForFunction(()=>document.getElementById('workspaceStatus').classList.contains('error'));
     assert.deepEqual(await allValues(),zeros,'An invalid cost must prevent the otherwise valid THC and price updates too');
+    // An unrelated invalid cost must not block a THC-only update (including mg).
+    await page.locator('#applyBulkThc').click();
+    assert.equal(await value(missing,'thc'),'42');
+    assert.equal(await value(missing,'thcUnit'),'mg');
+    assert.equal(await value(missing,'cost'),'0');
+    assert.equal(await value(missing,'medBasePrice'),'0');
+    await page.locator('#bulkThc').fill('0');
+    await page.locator('#applyBulkThc').click();
+    assert.deepEqual(await allValues(),zeros);
+    await page.locator('#bulkThc').fill('');
+    await page.locator('#applyBulkThc').click();
+    assert.deepEqual(await allValues(),zeros,'Empty individual actions must not erase values');
     for (const id of ['bulkThc','bulkCost','bulkPrice']) await page.locator(`#${id}`).fill('');
     // Saved-template tags and live learned options appear in both row/shared pickers.
     await pickTag(missing.locator('[data-field="tags"]'),'Legacy');

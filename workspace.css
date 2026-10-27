@@ -24,3 +24,5 @@ h1 {font-size:27px;letter-spacing:-.7px;line-height:1.2;margin:0}h2 {font-size:1
 .completion-card {overflow:visible}.completion-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.completion-grid label {margin:0}.completion-grid input,.completion-grid select {margin-top:5px}.completion-tags {margin-top:12px}.tag-field {grid-column:1/-1}.tag-picker {min-width:0}.tag-picker input {width:100%;box-sizing:border-box}.completion-card .section-heading {border-radius:9px 9px 0 0}.entry-card {overflow:visible}.tag-field>.field-state {margin-top:4px}
 @media(max-width:800px){.completion-grid {grid-template-columns:repeat(2,minmax(0,1fr))}}
 .batch-tools .apply-card {overflow:visible}.apply-card .section-heading,.entry-head {border-radius:9px 9px 0 0}
+
+.completion-thc {grid-column:span 2}.completion-thc-inputs {display:grid;grid-template-columns:1fr 1fr;gap:12px}.completion-value,.completion-thc {display:flex;flex-direction:column;gap:8px}.completion-value>button,.completion-thc>button {margin-top:auto;width:100%}.completion-tags>button {margin-top:8px}
