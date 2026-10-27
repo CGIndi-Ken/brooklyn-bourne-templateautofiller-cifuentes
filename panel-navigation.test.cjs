@@ -13,7 +13,7 @@ async function main() {
       };
     });
     await page.goto('about:blank');
-    for (const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','panel.js']) await page.addScriptTag({path:path.join(__dirname,file)});
+    for (const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await page.addScriptTag({path:path.join(__dirname,file)});
     await page.waitForFunction(()=>steps.length > 0);
     // Mimic a slow fill while the user skips, restarts, or chooses another template.
     for (const action of ['skip','restart','template','unchanged']) {

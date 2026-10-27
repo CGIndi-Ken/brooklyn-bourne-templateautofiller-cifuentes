@@ -1,8 +1,9 @@
 // A compact grouped chooser; the hidden select remains the editor's selection model.
-function createTemplatePicker(select) {
-  const toggle=document.getElementById('templatePickerToggle'), panel=document.getElementById('templatePickerPanel');
-  const search=document.getElementById('templatePickerSearch'), sort=document.getElementById('templatePickerSort');
-  const results=document.getElementById('templatePickerResults'), status=document.getElementById('templatePickerStatus');
+function createTemplatePicker(select, root = document) {
+  const toggle=root.getElementById('templatePickerToggle'), panel=root.getElementById('templatePickerPanel');
+  const search=root.getElementById('templatePickerSearch'), sort=root.getElementById('templatePickerSort');
+  const results=root.getElementById('templatePickerResults'), status=root.getElementById('templatePickerStatus');
+  toggle.classList.add("template-picker-ui");panel.classList.add("template-picker-ui");
   const expanded=new Set(), compare=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}).compare;
   let entries=[], expandMatches=true;
   function close(focus=false) {panel.hidden=true;toggle.setAttribute('aria-expanded','false');if(focus)toggle.focus();}
@@ -50,18 +51,18 @@ function createTemplatePicker(select) {
     panel.hidden=false;toggle.setAttribute('aria-expanded','true');render();search.focus();
   });
   search.addEventListener('input',()=>{expandMatches=true;render();});sort.addEventListener('change',render);
-  document.getElementById('templatePickerCollapse').addEventListener('click',()=>{
+  root.getElementById('templatePickerCollapse').addEventListener('click',()=>{
     expanded.clear();expandMatches=false;render();
   });
-  document.getElementById('templatePickerExpand').addEventListener('click',()=>{
+  root.getElementById('templatePickerExpand').addEventListener('click',()=>{
     for(const entry of entries)expanded.add(entry.group.toLowerCase());render();
   });
   panel.addEventListener('keydown',event=>{
     if(event.key==='Escape'){event.preventDefault();close(true);}
     if(event.key==='ArrowDown' && event.target===search){event.preventDefault();results.querySelector('summary')?.focus();}
   });
-  document.addEventListener('pointerdown',event=>{if(!panel.contains(event.target) && !toggle.contains(event.target))close();});
-  document.addEventListener('focusin',event=>{if(!panel.contains(event.target) && event.target!==toggle)close();});
+  document.addEventListener('pointerdown',event=>{if(!event.composedPath().includes(panel) && !event.composedPath().includes(toggle))close();});
+  document.addEventListener('focusin',event=>{if(!event.composedPath().includes(panel) && !event.composedPath().includes(toggle))close();});
   select.addEventListener('change',sync);
   return {sync,update(templates){
     entries=Object.entries(templates).map(([name,template])=>{

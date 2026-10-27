@@ -60,7 +60,7 @@ async function main() {
       document.querySelector=(selector)=>{if(selector==='[data-testid^="product-detail"]')window.formQueries++;return query(selector);};
       window.setInterval=(...args)=>{window.intervals++;return interval(...args);};
     });
-    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
+    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
     const visible=()=>panel.locator('#box').isVisible();
     assert.equal(await visible(),false);
     await panel.evaluate(()=>{const el=document.createElement('div');el.id='probe';el.dataset.testid='product-detail-preview';document.getElementById('route').append(el);});

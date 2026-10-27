@@ -28,7 +28,7 @@ async function main() {
     const panel=await ctx.newPage();panel.on('pageerror',e=>errors.push(e.message));
     await panel.goto('about:blank');
     await panel.setContent('<body style="background:#292a2c"><div data-testid="product-detail-preview"></div></body>');
-    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
+    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
     await panel.locator('#box').waitFor({state:'visible'});
     fs.mkdirSync(path.join(__dirname,'previews'),{recursive:true});
     const colors = {'black-gold':'rgb(16, 16, 16)','black-yellow':'rgb(16, 16, 16)','grey-maroon':'rgb(40, 40, 44)','forest-mint':'rgb(16, 39, 30)'};

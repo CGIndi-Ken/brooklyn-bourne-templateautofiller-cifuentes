@@ -8,6 +8,7 @@ shadow.innerHTML = `
   <style>
     ${AUTOFILL_THEME}
     ${AUTOFILL_LAYOUT}
+    ${TEMPLATE_PICKER_CSS}
     .box { max-width:calc(100vw - 44px); max-height:80vh; overflow:auto; border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 20px #0004; }
     .head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .hide { color:var(--gold); }
@@ -32,7 +33,13 @@ shadow.innerHTML = `
     <div class="stripe"></div>
     <div class="bar">
       <div class="theme-picker"><label for="panelTheme">Theme</label><select id="panelTheme" aria-label="Theme"></select></div>
-      <select id="tpl" aria-label="Template"></select>
+      <select id="tpl" aria-label="Template" hidden></select>
+      <button id="templatePickerToggle" aria-expanded="false" aria-controls="templatePickerPanel">Choose a saved template…</button>
+      <section id="templatePickerPanel" aria-label="Choose an autofill template" hidden>
+        <input id="templatePickerSearch" type="search" aria-label="Search saved templates" placeholder="Search product, strain, brand or vendor…">
+        <div class="template-picker-tools"><select id="templatePickerSort" aria-label="Sort templates"><option value="asc">A–Z</option><option value="desc">Z–A</option></select><button id="templatePickerCollapse">Condense all</button><button id="templatePickerExpand">Expand all</button></div>
+        <p id="templatePickerStatus" role="status"></p><div id="templatePickerResults"></div>
+      </section>
       <div class="tabs" id="tabs"></div>
     </div>
     <div class="body">
@@ -84,6 +91,7 @@ document.documentElement.appendChild(host);
 const $s = (id) => shadow.getElementById(id);
 initThemeSelector($s("panelTheme"), host);
 const tplSelect = $s("tpl");
+const panelTemplatePicker=createTemplatePicker(tplSelect,shadow);
 const batchTpl = $s("batchTpl");
 const statusEl = $s("status");
 const nextEl = $s("next");
@@ -133,6 +141,7 @@ function makeButton(text, onPress, parent, cls) {
     (e) => {
       if (e.target !== host) return;
       const path = e.composedPath();
+      if (path.some((node)=>node.classList?.contains("template-picker-ui"))) return;
       const btn = path.find((n) => n.tagName === "BUTTON");
       if (!btn) return; // let the <select>s behave normally
       e.stopPropagation();
@@ -184,6 +193,7 @@ function fillSelectOptions(select, names, firstLabel) {
 function renderTemplates() {
   const names = Object.keys(templates);
   fillSelectOptions(tplSelect, names);
+  panelTemplatePicker.update(templates);
   fillSelectOptions(batchTpl, names, "Each tab's own template");
   resetSteps();
   renderStep();
@@ -292,6 +302,7 @@ async function fillThisTab(templateName) {
   if (!template) return { skipped: templateName ? `Template "${templateName}" not found` : "No template selected" };
 
   tplSelect.value = name;
+  panelTemplatePicker.sync();
   resetSteps();
   renderStep();
   const r = await runFields(FIELD_DEFS, template, { reuseOpen: false });

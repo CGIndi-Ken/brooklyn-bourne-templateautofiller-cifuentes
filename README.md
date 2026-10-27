@@ -81,3 +81,5 @@ THC amount and THC unit (%/mg) have independent apply and clear buttons, as do c
 Saved-template search starts as a compact, scrollable checklist. Use **Show full names** or **Condense all templates** to switch views; hover a shortened name to see it in full. Selections remain checked across searches. Loading selections closes the chooser and adds minimized product cards; expand only the products you want to edit.
 
 The popup template chooser groups saved templates by their saved brand (or the name before the first `|`). Groups start condensed. Search across product names, strains, brands, vendors and categories; matching groups open automatically. Use A–Z/Z–A sorting, **Condense all** or **Expand all**, then select a template to close the chooser and load it. Long names show in full on hover. Names, copies and imported templates are preserved.
+
+The on-page Autofiller now uses the same compact template chooser as the popup: collapsed brand groups, product/strain/vendor search, A–Z/Z–A sorting, and Condense all / Expand all. Selecting an entry updates the active autofill template and step list, then closes the chooser.

@@ -1,5 +1,5 @@
 const themeStyle = document.createElement("style");
-themeStyle.textContent = AUTOFILL_THEME + AUTOFILL_LAYOUT;
+themeStyle.textContent = AUTOFILL_THEME + AUTOFILL_LAYOUT + TEMPLATE_PICKER_CSS;
 document.head.prepend(themeStyle);
 const $ = (id) => document.getElementById(id);
 initThemeSelector($("themeSelect"), document.documentElement);
