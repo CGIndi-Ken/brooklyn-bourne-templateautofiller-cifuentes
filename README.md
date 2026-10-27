@@ -77,3 +77,5 @@ node --test --test-concurrency=2 *.test.cjs
 Use `PLAYWRIGHT_MODULE=playwright` when the package resolves normally. Alternatively, omit `TEST_BROWSER_EXECUTABLE` to use installed Chrome, or select a Playwright browser with `TEST_BROWSER_CHANNEL`. Browser fixtures run on a temporary local HTTP server with mocked extension storage; they do not contact Dutchie. After changes, reload the unpacked extension and verify autofill on the actual product form.
 
 THC amount and THC unit (%/mg) have independent apply and clear buttons, as do cost and price. Clear empties only that field on checked, shown entries, even with fill-blanks enabled. Hidden and unchecked products are preserved. The selected count is shown above the controls, and actions are disabled when it is zero. Click **Save all templates** to persist clears.
+
+Saved-template search starts as a compact, scrollable checklist. Use **Show full names** or **Condense all templates** to switch views; hover a shortened name to see it in full. Selections remain checked across searches. Loading selections closes the chooser and adds minimized product cards; expand only the products you want to edit.

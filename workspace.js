@@ -121,8 +121,8 @@ function addRow(values, {key = "", baseline = values, stored = null, id = crypto
   renderRow(row);
   updateRow(row);
 }
-function loadKeys(keys, baseline) {
-  for (const key of keys) if (Object.hasOwn(templates,key)) addRow(templates[key], {key, stored:templates[key], baseline:baseline || templates[key]});
+function loadKeys(keys, baseline, collapsed = false) {
+  for (const key of keys) if (Object.hasOwn(templates,key)) addRow(templates[key], {key, stored:templates[key], baseline:baseline || templates[key], collapsed});
   updateMetrics();
 }
 function choicesFor(def) { return [...new Set([...(learned[def.key] || []), ...(def.options || [])])]; }
@@ -353,19 +353,46 @@ $w("rememberCategoryPairs").addEventListener("click",async () => {
   } catch(e) {setWorkspaceStatus(e.message,true);}
 });
 
-function renderSavedChoices() {
-  const source = $w("sharedSource").value;
-  const selected = new Set([...$w("savedChoices").querySelectorAll("input:checked")].map((input) => input.value));
-  const query = $w("savedSearch").value.toLowerCase(); const fragment = document.createDocumentFragment();
-  for (const key of Object.keys(templates).filter((key) => key.toLowerCase().includes(query))) {
-    const label = node("label","","check"); const input = document.createElement("input"); input.type="checkbox"; input.value=key; input.checked=selected.has(key); label.append(input,document.createTextNode(key)); fragment.append(label);
+const savedSelection = new Set();
+function updateSavedSelectionCount() {
+  $w("savedSelectedCount").textContent=savedSelection.size ? `${savedSelection.size} selected` : "";
+}
+function renderSavedChoices(refreshSource = true) {
+  for (const key of savedSelection) if (!Object.hasOwn(templates,key)) savedSelection.delete(key);
+  const query=$w("savedSearch").value.trim().toLowerCase(), fragment=document.createDocumentFragment();
+  let count=0;
+  for (const key of Object.keys(templates)) {
+    if (!key.toLowerCase().includes(query)) continue;
+    const label=node("label","","check");label.title=key;
+    const input=document.createElement("input");input.type="checkbox";input.value=key;input.checked=savedSelection.has(key);input.setAttribute("aria-label",key);
+    label.append(input,node("span",key));fragment.append(label);count++;
   }
   $w("savedChoices").replaceChildren(fragment);
-  $w("sharedSource").replaceChildren(new Option("Blank shared settings",""),...Object.keys(templates).map((key) => new Option(key,key)));
-  $w("sharedSource").value = source;
+  $w("savedSearchStatus").textContent=count ? `${count} matching templates. Selections are kept when searching.` : "No matching templates.";
+  updateSavedSelectionCount();
+  if (refreshSource) {
+    const source=$w("sharedSource").value;
+    $w("sharedSource").replaceChildren(new Option("Blank shared settings",""),...Object.keys(templates).map((key)=>new Option(key,key)));
+    $w("sharedSource").value=source;
+  }
 }
-$w("savedSearch").addEventListener("input",renderSavedChoices);
-$w("loadSelected").addEventListener("click",() => { loadKeys([...$w("savedChoices").querySelectorAll("input:checked")].map((input) => input.value)); scheduleSave(); });
+$w("savedChoices").addEventListener("change",event=>{
+  if (!event.target.matches('input[type="checkbox"]')) return;
+  if(event.target.checked) savedSelection.add(event.target.value);else savedSelection.delete(event.target.value);
+  updateSavedSelectionCount();
+});
+$w("toggleSavedCompact").addEventListener("click",()=>{
+  const compact=$w("savedChoices").classList.toggle("compact-list");
+  $w("toggleSavedCompact").setAttribute("aria-pressed",String(compact));
+  $w("toggleSavedCompact").textContent=compact ? "Show full names" : "Condense all templates";
+});
+$w("savedSearch").addEventListener("input",()=>renderSavedChoices(false));
+$w("loadSelected").addEventListener("click",()=>{
+  if(!savedSelection.size) return setWorkspaceStatus("Select saved templates to load first.",true);
+  loadKeys([...savedSelection],undefined,true);scheduleSave();
+  $w("savedTemplatePicker").open=false;
+  setWorkspaceStatus(`Loaded selected templates as compact cards. Use Expand on a product to edit its fields.`);
+});
 $w("loadRecent").addEventListener("click",() => { loadKeys(Array.isArray(recent) ? recent : recent?.keys || [], recent?.shared); scheduleSave(); });
 
 $w("saveProducts").addEventListener("click",async() => {
