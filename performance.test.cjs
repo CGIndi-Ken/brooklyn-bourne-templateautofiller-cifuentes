@@ -24,7 +24,7 @@ async function main() {
     await context.exposeBinding('writeStorage',(_,data)=>{if(data.templateDraft)draftWrites++;Object.assign(storage,data);});
     await context.exposeBinding('removeStorage',(_,key)=>{delete storage[key];});
     await context.addInitScript(()=>{
-      window.chrome={storage:{local:{get:key=>window.readStorage(key),set:data=>window.writeStorage(data),remove:key=>window.removeStorage(key)},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(){}}}};
+      window.chrome={storage:{local:{get:key=>window.readStorage(key),set:async data=>{await window.writeStorage(data);if(data.templateDraft)window.lastSavedDraft=data.templateDraft;},remove:key=>window.removeStorage(key)},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(){}}}};
     });
     const page = await context.newPage();
     await page.goto(pageURL('popup.html'));
@@ -33,7 +33,7 @@ async function main() {
       const el=document.getElementById('f_name');
       for(let i=0;i<50;i++){el.value+='x';el.dispatchEvent(new Event('input',{bubbles:true}));}
     });
-    await new Promise(resolve=>setTimeout(resolve,250));
+    await page.waitForFunction(()=>window.lastSavedDraft?.values.name.length===50);
     assert.equal(storage.templateDraft?.values.name.length,50);
     assert.equal(draftWrites,1,'A burst of input should create one draft write');
     await page.evaluate(()=>document.getElementById('f_name').dispatchEvent(new Event('input',{bubbles:true})));

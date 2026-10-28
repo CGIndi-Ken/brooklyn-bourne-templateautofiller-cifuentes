@@ -83,3 +83,7 @@ Saved-template search starts as a compact, scrollable checklist. Use **Show full
 The popup template chooser groups saved templates by their saved brand (or the name before the first `|`). Groups start condensed. Search across product names, strains, brands, vendors and categories; matching groups open automatically. Use A–Z/Z–A sorting, **Condense all** or **Expand all**, then select a template to close the chooser and load it. Long names show in full on hover. Names, copies and imported templates are preserved.
 
 The on-page Autofiller now uses the same compact template chooser as the popup: collapsed brand groups, product/strain/vendor search, A–Z/Z–A sorting, and Condense all / Expand all. Selecting an entry updates the active autofill template and step list, then closes the chooser.
+
+Use **Remove all** at the top of Bulk editor to start fresh. After confirmation, all workspace entries (including hidden/unchecked entries), shared settings, completion inputs and searches are cleared. Saved templates and vendor/category pairings are preserved. The empty draft stays empty after reopening; use Load last bulk batch to deliberately bring back previous work. NYS Distribution is excluded as a retired duplicate vendor from the directory and suggestions, including learned and imported choices; saved product data is preserved.
+
+Strain fields in both editors offer a dropdown of learned Dutchie strains and strains from saved templates. Suggestions update when lists/templates change; exact manual strain names are also accepted.

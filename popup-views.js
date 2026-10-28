@@ -9,7 +9,7 @@ function showPopupView(view, batchId = "") {
 }
 document.querySelector(".popup-view-tabs").addEventListener("click", (event) => { if (event.target.dataset.popupView) showPopupView(event.target.dataset.popupView); });
 
-let popupDirectory = [], directoryHintsReady = false;
+let popupDirectory = [], popupStrains = [], directoryHintsReady = false;
 const directoryHintValues = new Map();
 function updateDirectoryHints() {
   const vendor = document.getElementById("f_vendor"), brand = document.getElementById("f_brand");
@@ -24,7 +24,9 @@ function updateDirectoryHints() {
     }
     return id;
   };
-  vendor.setAttribute("list", list("directoryVendorHints",[...popupDirectory.map((entry) => entry.vendor),...(learned.vendor || [])]));
+  const strain=document.getElementById("f_strain");
+  if(strain) strain.setAttribute("list",list("strainHints",[...(learned.strain || []),...popupStrains]));
+  vendor.setAttribute("list", list("directoryVendorHints",[...popupDirectory.map((entry) => entry.vendor),...(learned.vendor || [])].filter(isSelectableVendor)));
   const entry = popupDirectory.find((item) => item.vendor.toLowerCase() === vendor.value.trim().toLowerCase());
   brand.setAttribute("list",list("directoryBrandHints",entry ? entry.brands : learned.brand || []));
 }
@@ -37,7 +39,17 @@ function installDirectoryHints() {
 }
 document.addEventListener("templateEditorReady",installDirectoryHints,{once:true});
 if (document.getElementById("f_vendor")) installDirectoryHints();
-chrome.storage.local.get("brandDirectory").then(({brandDirectory}) => { popupDirectory = brandDirectory || []; updateDirectoryHints(); });
+chrome.storage.local.get("brandDirectory").then(({brandDirectory}) => { popupDirectory = (brandDirectory || []).filter((entry)=>isSelectableVendor(entry.vendor)); updateDirectoryHints(); });
 chrome.storage.onChanged.addListener((changes,area) => {
-  if (area === "local" && changes.brandDirectory) { popupDirectory = changes.brandDirectory.newValue || []; updateDirectoryHints(); }
+  if (area === "local" && changes.brandDirectory) { popupDirectory = (changes.brandDirectory.newValue || []).filter((entry)=>isSelectableVendor(entry.vendor)); updateDirectoryHints(); }
+});
+
+function updateSavedStrains(templates) {
+  popupStrains=Object.values(templates || {}).map((template)=>template.strain).filter(Boolean);updateDirectoryHints();
+}
+chrome.storage.local.get("templates").then(({templates})=>updateSavedStrains(templates));
+chrome.storage.onChanged.addListener((changes,area)=>{
+  if(area!=="local") return;
+  if(changes.templates) updateSavedStrains(changes.templates.newValue);
+  if(changes.options) {learned=changes.options.newValue || {};updateDirectoryHints();}
 });

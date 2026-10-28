@@ -1,3 +1,5 @@
+// Retired duplicate vendor; keep existing template values but omit it from choices.
+const isSelectableVendor = (vendor) => String(vendor ?? "").trim().toLowerCase() !== "nys distribution";
 const WORKSPACE_FIELDS = FIELD_DEFS.filter((def) => !def.fixed && !def.copyOf);
 const WORKSPACE_FLAGS = ["copyToLocation", "categoryPresetUnlocked"];
 
@@ -27,6 +29,7 @@ function sameProduct(a, b) {
 
 function mergeVendor(directory, vendor, brands) {
   vendor = vendor.trim();
+  if (!isSelectableVendor(vendor)) throw new Error("Choose the correct saved vendor instead of NYS Distribution.");
   const names = [...new Map(brands.map((brand) => brand.trim()).filter(Boolean).map((brand) => [brand.toLowerCase(), brand])).values()];
   if (!vendor || !names.length) throw new Error("Enter a vendor and at least one brand.");
   const next = directory.map((entry) => ({vendor:entry.vendor, brands:[...entry.brands]}));

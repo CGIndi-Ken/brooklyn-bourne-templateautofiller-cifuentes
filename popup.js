@@ -77,7 +77,7 @@ function makeControl(def) {
   if (def.maxLength) el.maxLength = def.maxLength;
   if (def.key === "onlineDescription") el.rows = 6;
 
-  if (def.type === "autocomplete" && opts && !def.multi && !["vendor", "brand"].includes(def.key)) {
+  if (def.type === "autocomplete" && opts && !def.multi && !["vendor", "brand", "strain"].includes(def.key)) {
     const dl = document.createElement("datalist");
     dl.id = `dl_${def.key}`;
     opts.forEach((o) => dl.appendChild(new Option(o)));
@@ -458,7 +458,7 @@ $("exportBtn").addEventListener("click", async () => {
     const {brandDirectory = []} = await chrome.storage.local.get("brandDirectory");
     const {categoryPairings = {}} = await chrome.storage.local.get("categoryPairings");
     const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,removeRetiredFields({...template})]));
-    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory, categoryPairings }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -508,9 +508,10 @@ $("importFile").addEventListener("change", async () => {
     let brandDirectory;
     if (backup.brandDirectory !== undefined) {
       if (!Array.isArray(backup.brandDirectory)) throw new Error("Invalid brand directory in file.");
-      brandDirectory = (await chrome.storage.local.get("brandDirectory")).brandDirectory || [];
+      brandDirectory = ((await chrome.storage.local.get("brandDirectory")).brandDirectory || []).filter((entry)=>isSelectableVendor(entry.vendor));
       for (const entry of backup.brandDirectory) {
         if (!isObject(entry) || typeof entry.vendor !== "string" || !Array.isArray(entry.brands) || !entry.brands.every((brand) => typeof brand === "string")) throw new Error("Invalid vendor/brand pair in file.");
+        if (!isSelectableVendor(entry.vendor)) continue;
         const existing = brandDirectory.find((item) => item.vendor.toLowerCase() === entry.vendor.trim().toLowerCase());
         brandDirectory = mergeVendor(brandDirectory,entry.vendor,[...(existing?.brands || []),...entry.brands]);
       }

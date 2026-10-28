@@ -28,3 +28,4 @@ h1 {font-size:27px;letter-spacing:-.7px;line-height:1.2;margin:0}h2 {font-size:1
 .completion-value {display:flex;flex-direction:column;gap:8px}.completion-value>button {margin-top:auto;width:100%}.completion-tags>button {margin-top:8px}
 
 #savedTemplatePicker summary {gap:8px}#savedSelectedCount {font-size:11px;color:var(--gold);white-space:nowrap}.compact-list {max-height:170px}.compact-list .check {display:flex;align-items:center;gap:8px;margin:0;padding:5px 0;min-width:0}.compact-list .check input {flex:0 0 auto;margin:0}.compact-list .check span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.choice-list:not(.compact-list) .check span {overflow-wrap:anywhere}
+.workspace-actions {display:flex;gap:8px;flex-wrap:wrap}
