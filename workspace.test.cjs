@@ -75,7 +75,7 @@ async function main(){
     assert.equal(await page.locator('.entry-card').first().locator('[data-field="medBasePrice"]').inputValue(),'40');
     await page.locator('.entry-card').first().locator('[data-field="cost"]').fill('18');
     await page.evaluate(async()=>{const {templates}=await chrome.storage.local.get('templates');templates['Brand One | Runtz | 3.5g (H)'].cost='99';await chrome.storage.local.set({templates});});
-    await page.locator('#saveProducts').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.includes('changed in another window'));
+    await page.locator('#saveProducts').click();await page.locator('.entry-card').first().locator('[data-save-conflict]').waitFor({state:'visible'});
     assert.equal(storage.templates['Brand One | Runtz | 3.5g (H)'].cost,'99');
     page.once('dialog',dialog=>dialog.accept());await page.locator('.entry-card').first().getByRole('button',{name:'Reload',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.entry-card [data-field="cost"]').value==='99');

@@ -172,13 +172,14 @@ function renderRow(row) {
   const reload = node("button", "Reload"); reload.dataset.action="reload";reload.hidden=!row.key;reload.title="Reload the saved template and discard local changes";
   const remove = node("button", "Remove"); remove.dataset.action = "remove"; remove.title = "Remove from this workspace; saved templates are kept";
   header.append(select,title,badge,collapse,duplicate,reload,remove);
+  const conflict=node("div","","save-conflict");conflict.dataset.saveConflict="";conflict.hidden=true;
   const content = node("div", "", "entry-content");content.id=`entry-content-${row.id}`; const grid = node("div", "", "product-grid");
   for (const key of TOP_FIELDS) grid.append(fieldControl(FIELD_MAP[key], row.values,row));
   const tabs = node("div", "", "editor-tabs");
   for (const [id,label] of [["details","Details"],["description","Online description"],["changes","Changes"]]) {
     const button = node("button",label); button.dataset.action = "tab"; button.dataset.tab = id; button.setAttribute("aria-expanded", String(row.tab === id)); tabs.append(button);
   }
-  const panel = node("div", "", "entry-panel"); content.append(grid,tabs,panel); card.append(header,content);
+  const panel = node("div", "", "entry-panel"); content.append(grid,tabs,panel); card.append(header,conflict,content);
   row.element = card; $w("entries").append(card); renderPanel(row);setCollapsed(row,row.collapsed);
 }
 function setCollapsed(row,collapsed) {
@@ -243,6 +244,7 @@ function updateRow(row) {
   const fromName=row.element.querySelector('[data-action="titleWeight"]');
   if (fromName) {const inferred=gramsFromTitle(row.values.name);fromName.disabled=!inferred;fromName.title=inferred ? `Use ${inferred} g total from Name` : "No recognized weight after the last | in Name";}
   const counter = row.element.querySelector(".description-count"); if (counter) counter.textContent = `${row.values.onlineDescription.length}/2500 characters`;
+  renderSaveConflict(row);
 }
 const metricValues = ["Products", "Unsaved entries", "Fields changed", "Fields left blank"].map((label) => {
   const el = node("div", "", "metric"), value = node("strong", "0");
@@ -278,6 +280,31 @@ function refreshValues(row) {
   }
   updateRow(row);
 }
+function renderSaveConflict(row) {
+  const panel=row.element.querySelector("[data-save-conflict]");
+  panel.replaceChildren();panel.hidden=!row.saveConflict;
+  if(!row.saveConflict) return;
+  const {latest,fields}=row.saveConflict;
+  panel.append(node("strong",latest ? "Review conflicting values" : "This saved template was deleted"));
+  panel.append(node("p",latest ? "Choose which conflicting values to keep. Your other edits are kept." : "Your edits are still here. Restore this template or remove the entry."));
+  if(latest) {
+    const table=node("table","","diff-table"),head=table.createTHead().insertRow();
+    for(const label of ["Field","My edits","Saved value"]) head.append(node("th",label));
+    const body=table.createTBody();
+    const flagLabels={copyToLocation:"Copy to Location details",categoryPresetUnlocked:"Unlock category presets",inferGramsFromTitle:"Weight from name"};
+    for(const key of fields) {
+      const tr=body.insertRow();
+      const display=(values)=>WORKSPACE_FLAGS.includes(key) ? (values[key] ? "Yes" : "No") : String(values[key] ?? "") || "Blank";
+      for(const value of [FIELD_MAP[key]?.label || flagLabels[key] || key,display(row.values),display(latest)]) tr.append(node("td",value));
+    }
+    const scroll=node("div","","diff-scroll");scroll.append(table);panel.append(scroll);
+  }
+  const actions=node("div","","field-actions");
+  for(const [action,label] of [["keepEdits",latest ? "Keep my edits" : "Restore template"],["useSaved",latest ? "Use saved values" : "Remove entry"]]) {
+    const button=node("button",label);button.dataset.action=action;actions.append(button);
+  }
+  panel.append(actions);
+}
 function editRow(event) {
   const input = event.target; const key = input.dataset.field;
   if (!key) return;
@@ -302,6 +329,28 @@ $w("entries").addEventListener("change",(event) => {
 $w("entries").addEventListener("click",async(event) => {
   const button = event.target.closest("button[data-action]"); if (!button) return;
   const row = rows.get(button.closest("[data-row]").dataset.row);
+  if (["keepEdits","useSaved"].includes(button.dataset.action)) {
+    if(saving || !row.saveConflict) return;
+    saving=true;$w("saveProducts").disabled=true;$w("removeAll").disabled=true;
+    row.element.querySelectorAll("[data-save-conflict] button").forEach((action)=>action.disabled=true);
+    try {
+      const saved=await read("templates") || {};
+      const latest=Object.hasOwn(saved,row.key) ? saved[row.key] : null;
+      if(!latest) {
+        if(button.dataset.action === "useSaved") {rows.delete(row.id);row.element.remove();}
+        else {row.stored=null;row.saveConflict=null;refreshValues(row);}
+      } else {
+        const merged=mergeProductChanges(row.stored,row.values,latest);
+        if(button.dataset.action === "useSaved") for(const key of merged.conflicts) merged.values[key]=WORKSPACE_FLAGS.includes(key) ? !!latest[key] : String(latest[key] ?? "");
+        row.values=merged.values;row.stored=clone(latest);row.saveConflict=null;refreshValues(row);
+        if(row.tab === "changes") renderPanel(row);
+      }
+      updateMetrics();workspaceDirty=true;await persistDraft();
+      setWorkspaceStatus("Choice kept. Save all templates to save your remaining edits.");
+    } catch(e) {setWorkspaceStatus(`Could not resolve these values: ${e.message}`,true);}
+    finally {saving=false;$w("saveProducts").disabled=false;$w("removeAll").disabled=false;row.element.querySelectorAll("[data-save-conflict] button").forEach((action)=>action.disabled=false);}
+    return;
+  }
   if (button.dataset.action === "titleWeight") {
     const inferred=gramsFromTitle(row.values.name);
     if(!inferred) return;
@@ -316,7 +365,7 @@ $w("entries").addEventListener("click",async(event) => {
       if(row.dirty && !confirm("Reload this saved template and discard its local changes?")) return;
       const latest=(await read("templates") || {})[row.key];
       if(!latest) throw new Error("This template is no longer saved. Remove this entry and add a new one.");
-      row.values=productValues(latest);row.baseline=clone(latest);row.stored=clone(latest);renderPanel(row);refreshValues(row);updateMetrics();scheduleSave();setWorkspaceStatus("Reloaded the saved template.");
+      row.values=productValues(latest);row.baseline=clone(latest);row.stored=clone(latest);row.saveConflict=null;renderPanel(row);refreshValues(row);updateMetrics();scheduleSave();setWorkspaceStatus("Reloaded the saved template.");
     }catch(e){setWorkspaceStatus(e.message,true);}
   }
   if (button.dataset.action === "remove") { if (row.dirty && !confirm("Discard this entry's unsaved changes? Saved templates will be kept.")) return; rows.delete(row.id); row.element.remove(); updateMetrics(); scheduleSave(); }
@@ -440,28 +489,43 @@ $w("saveProducts").addEventListener("click",async() => {
   if (!dirty.length) return setWorkspaceStatus("Everything is already saved.");
   saving = true; $w("saveProducts").disabled = true;$w("removeAll").disabled=true;
   try {
-    const latest = await read("templates") || {}; const keys = new Set(); const changes = [];
+    workspaceDirty=true;await persistDraft();
+    const latest = await read("templates") || {}; const keys = new Set(); const changes = [], conflicts=[];
     for (const row of rows.values()) {
       const key = row.key || row.values.name.trim();
       if (!key || !row.values.name.trim()) throw new Error("Every entry needs a product name before saving.");
       if (keys.has(key)) throw new Error(`Duplicate template name: ${key}`); keys.add(key);
       if (!row.dirty) continue;
       if (!row.key && Object.hasOwn(latest,key)) throw new Error(`"${key}" already exists. Load it to edit it, or use another name.`);
-      if (row.key && JSON.stringify(latest[key]) !== JSON.stringify(row.stored)) throw new Error(`"${key}" changed in another window. Use Reload on that entry before saving.`);
-      const values = productValues(row.values);
+      let values = productValues(row.values);
+      row.saveConflict=null;
+      if(row.key && row.stored && !Object.hasOwn(latest,key)) row.saveConflict={latest:null,fields:[]};
+      else if(row.key && Object.hasOwn(latest,key)) {
+        const merged=mergeProductChanges(row.stored,values,latest[key]);
+        values=merged.values;
+        if(merged.conflicts.length) row.saveConflict={latest:clone(latest[key]),fields:merged.conflicts};
+      }
+      renderSaveConflict(row);
+      if(row.saveConflict) {conflicts.push(row);continue;}
       for (const def of WORKSPACE_FIELDS) { values[def.key] = values[def.key].trim(); if (def.maxLength && values[def.key].length > def.maxLength) throw new Error(`${key}: ${def.label} exceeds ${def.maxLength} characters.`); }
       changes.push({row,key,values,submitted:clone(row.values)});
     }
     for (const {key,values} of changes) Object.defineProperty(latest,key,{value:values,enumerable:true,writable:true,configurable:true});
-    await chrome.storage.local.set({templates:latest,lastBulkBatch:{keys:changes.map((change) => change.key),shared}});
+    if(changes.length) await chrome.storage.local.set({templates:latest,lastBulkBatch:{keys:changes.map((change) => change.key),shared}});
     templates = latest;
     for (const {row,key,values,submitted} of changes) {
       row.key=key; row.stored=clone(values);
       // Storage is asynchronous: edits made while saving must remain unsaved.
-      if (sameProduct(row.values,submitted)) row.values=values;
+      row.values=sameProduct(row.values,submitted) ? values : mergeProductChanges(submitted,row.values,values).values;
       row.element.querySelector('[data-action="reload"]').hidden=false; refreshValues(row);
     }
-    updateMetrics(); renderSavedChoices(); workspaceDirty=true;await persistDraft(); setWorkspaceStatus(`Saved ${changes.length} templates. Your changes and blank fields are still visible.`);
+    updateMetrics(); renderSavedChoices(); workspaceDirty=true;await persistDraft();
+    if(conflicts.length) {
+      // Keep conflicting entries visible even when the current search hid them.
+      $w("entrySearch").value="";filterEntries();scheduleSave();
+      setWorkspaceStatus(`${changes.length ? `Saved ${changes.length} templates. ` : ""}${conflicts.length} ${conflicts.length === 1 ? "entry needs" : "entries need"} review. Your edits are kept; choose which conflicting values to save.`,true);
+      conflicts[0].element.querySelector("[data-save-conflict]").scrollIntoView({block:"center"});
+    } else setWorkspaceStatus(`Saved ${changes.length} templates. Your changes and blank fields are still visible.`);
   } catch(e) { setWorkspaceStatus(e.message,true); } finally { saving=false; $w("saveProducts").disabled=false;$w("removeAll").disabled=false; }
 });
 
