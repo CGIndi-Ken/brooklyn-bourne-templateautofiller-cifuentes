@@ -9,6 +9,7 @@ const STORED_DEFS = FIELD_DEFS.filter((d) => !d.fixed && !d.copyOf);
 let learned = {};
 let sections = []; // { keys, countEl }
 let storedControls = [];
+let gramsAuto=true;
 
 async function getTemplates() {
   const { templates } = await chrome.storage.local.get("templates");
@@ -49,6 +50,12 @@ function setCategoryPresetUnlocked(unlocked) {
   });
 }
 
+function updateGramsFromName(recompute = false) {
+  const inferred=gramsFromTitle($("f_name")?.value || "");
+  if (recompute && gramsAuto) setValue(DEFS.gramsConcentration,inferred);
+  const button=$("useTitleWeight");
+  if (button) {button.disabled=!inferred;button.title=inferred ? `Use ${inferred} g total from Name` : "Add a weight such as 3.5g or 100mg after the last | in Name";}
+}
 function makeControl(def) {
   const opts = optionsFor(def);
   const frag = document.createDocumentFragment();
@@ -143,6 +150,12 @@ function buildForm() {
       pair.appendChild(ctl);
       pairs[key] = pair;
       row.append(label, pair);
+      if (key === "gramsConcentration") {
+        const fromName=document.createElement("button");fromName.type="button";fromName.id="useTitleWeight";
+        fromName.className="weight-from-name";fromName.textContent="From name";fromName.setAttribute("aria-label","Use total weight from name");
+        fromName.addEventListener("click",()=>{if(!gramsFromTitle($("f_name").value)) return;gramsAuto=true;updateGramsFromName(true);updateCounts();invalidateBulk();scheduleDraft();});
+        row.append(fromName);
+      }
       if (key === "onlineDescription") {
         const instructions = document.createElement("details");instructions.className="help";
         const how=document.createElement("summary");how.textContent="How to add a description";
@@ -232,6 +245,8 @@ function loadSelected(templates) {
   if (!t) return;
   $("templateName").value = name;
   STORED_DEFS.forEach((d) => setValue(d, t[d.key]));
+  gramsAuto=t.inferGramsFromTitle === true;
+  updateGramsFromName();
   $("copyLoc").checked = !!t.copyToLocation;
   setCategoryPresetUnlocked(!!t.categoryPresetUnlocked);
   applyCategoryDefaults();
@@ -266,7 +281,7 @@ function flushDraft() {
 }
 function templateDraftState() {
   const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
-  return { values, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+  return { values, inferGramsFromTitle:gramsAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
 }
 async function saveDraft() {
   clearTimeout(draftTimer);
@@ -308,7 +323,9 @@ async function copyDescriptionPrompt() {
 function clearTemplateForm() {
   clearTimeout(draftTimer);
   draftDirty = false;
+  gramsAuto=true;
   STORED_DEFS.forEach((d) => setValue(d, NEW_TEMPLATE_DEFAULTS[d.key] ?? ""));
+  updateGramsFromName();
   $("copyLoc").checked = false;
   setCategoryPresetUnlocked(false);
   $("templateName").value = "";
@@ -349,6 +366,8 @@ $("templateSelect").addEventListener("change", async () => loadSelected(await ge
 function onFormEdit(event) {
   const selection = event.target.matches('select, input[type="checkbox"]');
   if ((event.type === "input" && selection) || (event.type === "change" && !selection)) return;
+  if (event.target.id === "f_gramsConcentration") gramsAuto=false;
+  if (event.target.id === "f_name") updateGramsFromName(true);
   if (event.target.id === "f_category") applyCategoryDefaults(true);
   if (event.target.id === "unlockCategoryPreset") {
     setCategoryPresetUnlocked(event.target.checked);
@@ -372,6 +391,7 @@ $("copyBtn").addEventListener("click", () => {
   const name = $("templateName").value.trim();
   if (!name) return toast("Nothing to copy yet.");
   Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
+  gramsAuto=true;updateGramsFromName(true);
   updateCounts();
   invalidateBulk();
   $("templateName").value = `${name} copy`;
@@ -389,6 +409,7 @@ function readTemplateForm() {
   data.categoryPresetUnlocked = $("unlockCategoryPreset").checked;
   applyTemplatePreset(data);
   data.copyToLocation = $("copyLoc").checked;
+  data.inferGramsFromTitle=gramsAuto;
   if (data.onlineDescription.length > 2500) throw new Error("Description exceeds 2500 characters.");
   return data;
 }
@@ -500,6 +521,8 @@ $("importFile").addEventListener("change", async () => {
       }
       if (template.copyToLocation !== undefined && typeof template.copyToLocation !== "boolean") throw new Error(`Invalid location setting in "${name}".`);
       if (template.categoryPresetUnlocked !== undefined && typeof template.categoryPresetUnlocked !== "boolean") throw new Error(`Invalid category preset setting in "${name}".`);
+      if (template.inferGramsFromTitle !== undefined && typeof template.inferGramsFromTitle !== "boolean") throw new Error(`Invalid weight setting in "${name}".`);
+      clean.inferGramsFromTitle=template.inferGramsFromTitle === true;
       clean.copyToLocation = !!template.copyToLocation;
       clean.categoryPresetUnlocked = template.categoryPresetUnlocked === true;
       applyTemplatePreset(clean);
@@ -547,6 +570,7 @@ $("importFile").addEventListener("change", async () => {
   const { templateDraft } = await chrome.storage.local.get("templateDraft");
   if (templateDraft && templateDraft.values) {
     STORED_DEFS.forEach((d) => setValue(d, templateDraft.values[d.key]));
+    gramsAuto=templateDraft.inferGramsFromTitle === true;
     $("templateName").value = templateDraft.name || "";
     $("templateSelect").value = templateDraft.selected || "";
     $("copyLoc").checked = !!templateDraft.copyToLocation;
@@ -555,6 +579,7 @@ $("importFile").addEventListener("change", async () => {
     $("bulkNames").value = templateDraft.bulkNames || "";
     updateCounts();
   }
+  updateGramsFromName();
   templatePicker.sync();
   document.dispatchEvent(new Event("templateEditorReady"));
 })();

@@ -31,13 +31,13 @@ Use **Brand directory** to save a vendor and multiple brands. Vendor name sugges
 
 To remove a saved vendor, select it in **Brand directory**, click **Delete vendor**, and confirm. This removes its directory pairings and keeps saved product templates. Learned suggestions and template values remain available; **Remember pairs from saved templates** can add those pairings again.
 
-Saved templates and restored drafts keep their existing pricing and grams; starting a new template clears these three values. You can fill them later using the bulk controls.
+Saved templates and restored drafts keep their existing values. New templates start with blank cost and price; grams come from a recognized weight in the product name, otherwise remain blank.
 
 The main template editor suggests that vendor's brands. Select a vendor and check its brands to create a separate bulk window with one starting entry per selected brand; use Add product or Duplicate settings for more. Shared settings from the template form carry into batches launched from the popup directory. Pairings are included in template exports and merged on import. Saved workspace drafts recover unfinished batches after reload.
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
 
-You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost, base price and grams/concentration always start **blank** for new templates, including bulk creation, copies and new brand entries. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
+You can also paste up to three tab-separated columns from a spreadsheet, without a header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost and base price start **blank** for new templates, including bulk creation, copies and new brand entries. Grams/concentration is inferred separately from each product name when a recognized weight is present. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
@@ -89,3 +89,11 @@ Use **Remove all** at the top of Bulk editor to start fresh. After confirmation,
 Strain fields in both editors offer a dropdown of learned Dutchie strains and strains from saved templates. Suggestions update when lists/templates change; exact manual strain names are also accepted.
 
 Version 0.18 reduces repeated instructions across the popup, bulk editor and Autofiller. Guidance is available under expandable Help sections. Bulk Apply/Clear controls are grouped by field, summary counts are compact, and unchanged/blank field badges are hidden while changes and selection counts stay visible. All template, bulk editing, backup and autofill actions remain available.
+
+## Weight from the product name
+
+Use `BRAND | STRAIN | WEIGHT, QUANTITY, CATEGORY (TYPE)`. Only the size at the start of the final `|` section is read; quantity, category and strain type may follow it. `Florette | Zereal Milk | 3.5g (H)` sets grams/concentration to `3.5`. `Brand | Gummies | 100mg, 10pk, Edibles (H)` sets it to `0.1`. The stated weight is always the **total**: `1g 2pk` stays `1`, never `2`.
+
+New templates and bulk-created entries infer their own weights. While automatic, editing Name updates grams too; removing a recognized size clears the previous inferred weight. Typing or clearing grams yourself makes it manual, including typing the same number. **From name** opts back into automatic weight. This choice is saved with templates and drafts and included in exports. Loading older saved templates or imports preserves their stored values; use From name to adopt a suggestion.
+
+Only unambiguous g/mg sizes are recognized. Unformatted names, multiple dosage/weight values, multiplication expressions and unsupported units are left for manual entry. Cost and price are never inferred.

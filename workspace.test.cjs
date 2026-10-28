@@ -33,7 +33,7 @@ async function main(){
     await first.locator('[data-field="name"]').fill('Brand One | Runtz | 3.5g (H)');
     await second.locator('[data-field="name"]').fill('Brand Two | Grape Gas | 3.5g (I)');
     for(const card of [first,second]) {
-      assert.equal(await card.locator('[data-field="gramsConcentration"]').inputValue(),'');
+      assert.equal(await card.locator('[data-field="gramsConcentration"]').inputValue(),'3.5','New formatted product names infer their own grams');
       await card.locator('[data-field="gramsConcentration"]').fill('3.5');
     }
     await page.locator('#collapseAll').click();assert.equal(await page.locator('.entry-content:visible').count(),0);

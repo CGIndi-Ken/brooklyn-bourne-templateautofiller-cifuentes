@@ -153,6 +153,10 @@ function fieldControl(def, values, row) {
   if (def.key === "vendor") input.setAttribute("list", "vendorsList");
   if (def.key === "brand") input.setAttribute("list", brandListId(values.vendor));
   label.append(input, node("span", "", "field-state"));
+  if (def.key === "gramsConcentration") {
+    const fromName=node("button","From name","weight-from-name");fromName.type="button";fromName.dataset.action="titleWeight";
+    fromName.setAttribute("aria-label","Use total weight from name");label.append(fromName);
+  }
   if (def.key === "name") label.classList.add("name-field");
   return label;
 }
@@ -236,6 +240,8 @@ function updateRow(row) {
     const hint = input.parentElement.querySelector(".field-state");
     if (hint) { hint.dataset.state = diff.state; hint.textContent = diff.state === "changed" ? (diff.after ? "Changed" : "Cleared · will skip") : diff.state === "kept" ? "Kept" : "Blank · will skip"; }
   }
+  const fromName=row.element.querySelector('[data-action="titleWeight"]');
+  if (fromName) {const inferred=gramsFromTitle(row.values.name);fromName.disabled=!inferred;fromName.title=inferred ? `Use ${inferred} g total from Name` : "No recognized weight after the last | in Name";}
   const counter = row.element.querySelector(".description-count"); if (counter) counter.textContent = `${row.values.onlineDescription.length}/2500 characters`;
 }
 const metricValues = ["Products", "Unsaved entries", "Fields changed", "Fields left blank"].map((label) => {
@@ -279,6 +285,11 @@ function editRow(event) {
   if ((event.type === "input" && selection) || (event.type === "change" && !selection)) return;
   const row = rows.get(input.closest("[data-row]").dataset.row);
   row.values[key] = input.type === "checkbox" ? input.checked : input.value;
+  if (key === "gramsConcentration") row.values.inferGramsFromTitle=false;
+  if (key === "name" && row.values.inferGramsFromTitle) {
+    row.values.gramsConcentration=gramsFromTitle(row.values.name);
+    row.element.querySelector('[data-field="gramsConcentration"]').value=row.values.gramsConcentration;
+  }
   if (key === "category" || key === "categoryPresetUnlocked") applyTemplatePreset(row.values);
   if (["category","categoryPresetUnlocked","vendor"].includes(key)) refreshValues(row); else updateRow(row);
   if (row.tab === "changes") renderPanel(row);
@@ -291,6 +302,12 @@ $w("entries").addEventListener("change",(event) => {
 $w("entries").addEventListener("click",async(event) => {
   const button = event.target.closest("button[data-action]"); if (!button) return;
   const row = rows.get(button.closest("[data-row]").dataset.row);
+  if (button.dataset.action === "titleWeight") {
+    const inferred=gramsFromTitle(row.values.name);
+    if(!inferred) return;
+    row.values.gramsConcentration=inferred;row.values.inferGramsFromTitle=true;refreshValues(row);
+    if(row.tab === "changes") renderPanel(row);updateMetrics();scheduleSave();
+  }
   if (button.dataset.action === "collapse") {setCollapsed(row,!row.collapsed);scheduleSave();}
   if (button.dataset.action === "tab") { row.tab = row.tab === button.dataset.tab ? "" : button.dataset.tab; renderPanel(row); updateRow(row); scheduleSave(); }
   if (button.dataset.action === "duplicate") { addRow(newProduct(row.values),{baseline:row.values}); updateMetrics(); scheduleSave(); }
@@ -343,7 +360,9 @@ $w("applySelected").addEventListener("click",() => {
     value = /^yes$/i.test(value);
   } else if (!value && !$w("clearValue").checked) return setWorkspaceStatus("Enter a value or choose Clear this field.",true);
   let count = 0;
-  for (const row of rows.values()) if (row.selected && !row.element.hidden) { row.values[key] = value; if(["regulatoryCategory","externalCategory"].includes(key)) row.values.categoryPresetUnlocked=true; applyTemplatePreset(row.values); refreshValues(row); if (row.tab === "changes") renderPanel(row); count++; }
+  for (const row of rows.values()) if (row.selected && !row.element.hidden) { row.values[key] = value; if(key === "gramsConcentration") row.values.inferGramsFromTitle=false;
+    if(key === "name" && row.values.inferGramsFromTitle) row.values.gramsConcentration=gramsFromTitle(row.values.name);
+    if(["regulatoryCategory","externalCategory"].includes(key)) row.values.categoryPresetUnlocked=true; applyTemplatePreset(row.values); refreshValues(row); if (row.tab === "changes") renderPanel(row); count++; }
   updateMetrics(); scheduleSave(); setWorkspaceStatus(`Applied to ${count} shown selected entries. Other fields kept.`);
 });
 $w("rememberCategoryPairs").addEventListener("click",async () => {

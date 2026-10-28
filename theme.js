@@ -138,4 +138,5 @@ const AUTOFILL_LAYOUT = `
   .help[open] > summary::before {content:"▾ ";}
   .card .help > summary::after {content:none;}
   .help p {margin:7px 0;}
+  .weight-from-name {font-size:10px;padding:4px 7px;margin-top:5px;font-weight:500;}
 `;

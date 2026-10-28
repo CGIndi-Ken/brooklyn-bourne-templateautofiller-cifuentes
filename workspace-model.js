@@ -1,7 +1,7 @@
 // Retired duplicate vendor; keep existing template values but omit it from choices.
 const isSelectableVendor = (vendor) => String(vendor ?? "").trim().toLowerCase() !== "nys distribution";
 const WORKSPACE_FIELDS = FIELD_DEFS.filter((def) => !def.fixed && !def.copyOf);
-const WORKSPACE_FLAGS = ["copyToLocation", "categoryPresetUnlocked"];
+const WORKSPACE_FLAGS = ["copyToLocation", "categoryPresetUnlocked", "inferGramsFromTitle"];
 
 function productValues(template = {}) {
   const values = { ...template };
@@ -11,7 +11,10 @@ function productValues(template = {}) {
 }
 
 function newProduct(shared = {}, overrides = {}) {
-  return productValues({ ...shared, ...NEW_TEMPLATE_DEFAULTS, name: "", strain: "", onlineDescription: "", externalId: "", ...overrides });
+  const values={ ...shared, ...NEW_TEMPLATE_DEFAULTS, name: "", strain: "", onlineDescription: "", externalId: "", ...overrides };
+  values.inferGramsFromTitle=!Object.hasOwn(overrides,"gramsConcentration");
+  if (values.inferGramsFromTitle) values.gramsConcentration=gramsFromTitle(values.name);
+  return productValues(values);
 }
 
 function productDiff(values, baseline = {}) {

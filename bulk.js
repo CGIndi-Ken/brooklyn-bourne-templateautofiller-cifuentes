@@ -11,7 +11,7 @@ function buildBulkTemplates(text, shared, existing) {
     if (onlineDescription.length > 2500) throw new Error(`Line ${index + 1}: description exceeds 2500 characters.`);
     if (Object.hasOwn(templates, name)) { skipped.push(name); continue; }
     // These are product-specific and must not leak from the shared template.
-    const data = { ...shared, ...NEW_TEMPLATE_DEFAULTS, name, strain, onlineDescription, externalId: "" };
+    const data = { ...shared, ...NEW_TEMPLATE_DEFAULTS, name, strain, onlineDescription, externalId: "", gramsConcentration:gramsFromTitle(name), inferGramsFromTitle:true };
     applyTemplatePreset(data);
     delete data.type;
     delete data.defaultUnit;
