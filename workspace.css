@@ -29,3 +29,6 @@ h1 {font-size:27px;letter-spacing:-.7px;line-height:1.2;margin:0}h2 {font-size:1
 
 #savedTemplatePicker summary {gap:8px}#savedSelectedCount {font-size:11px;color:var(--gold);white-space:nowrap}.compact-list {max-height:170px}.compact-list .check {display:flex;align-items:center;gap:8px;margin:0;padding:5px 0;min-width:0}.compact-list .check input {flex:0 0 auto;margin:0}.compact-list .check span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.choice-list:not(.compact-list) .check span {overflow-wrap:anywhere}
 .workspace-actions {display:flex;gap:8px;flex-wrap:wrap}
+
+.field-actions {display:flex;gap:6px;margin-top:auto}.field-actions button {flex:1;font-size:11px;padding:7px}.completion-value {gap:6px}.metrics {gap:6px;margin:10px 0}.metric,.workspace.embedded .metric {display:flex;align-items:center;gap:6px;padding:6px 10px;min-width:0}.metric strong,.workspace.embedded .metric strong {font-size:14px}.field-state[data-state="blank"],.field-state[data-state="kept"] {display:none}.entry-search .help {margin:4px 0}
+@media(max-width:800px){.page-heading {flex-wrap:wrap}.workspace-actions {width:100%}}

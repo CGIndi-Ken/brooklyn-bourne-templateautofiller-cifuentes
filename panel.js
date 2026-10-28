@@ -48,16 +48,16 @@ shadow.innerHTML = `
           <div class="section-heading">Fill product</div>
           <div class="fields">
             <button class="primary gold-button" id="all">Fill all</button>
-            <p class="sub">Fills this product using your template. Shortcut: Alt+Shift+A</p>
+            <details class="help"><summary>Shortcut</summary><p>Fill this product: Alt+Shift+A</p></details>
           </div>
         </section>
         <section class="card">
-          <div class="section-heading">All open Dutchie tabs</div>
+          <div class="section-heading">Multiple tabs</div>
           <div class="fields">
             <label class="field" for="batchTpl">Template for all tabs</label>
             <select id="batchTpl" aria-label="Template for all tabs"></select>
             <button class="wide" id="allTabs">Fill every tab, one by one</button>
-            <p class="sub">Switches to each product tab in this window, fills it, then comes back here. Shortcut: Alt+Shift+Z</p>
+            <details class="help"><summary>How it works</summary><p>Fills product tabs in this window, then returns here. Shortcut: Alt+Shift+Z.</p></details>
           </div>
         </section>
       </div>
@@ -66,7 +66,7 @@ shadow.innerHTML = `
         <div class="fields">
           <div id="next"></div>
           <div class="row" id="stepRow"></div>
-          <p class="sub">One field at a time. Open a dropdown first to use it for the next step. Next: Alt+Shift+N</p>
+          <p class="sub">Next fills one step. Shortcut: Alt+Shift+N.</p>
         </div>
       </section>
       <section class="tab card" id="tab-fields" hidden>
@@ -77,7 +77,7 @@ shadow.innerHTML = `
         <div class="section-heading">Learn dropdown lists</div>
         <div class="fields">
           <div class="grid" id="learnGrid"></div>
-          <p class="sub">Reads this page's lists for the template maker. Pick a Category first so Regulatory category loads correctly.</p>
+          <p class="sub">Choose a category before learning its lists.</p>
         </div>
       </section>
       <div id="statusArea" hidden>

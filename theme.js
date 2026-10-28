@@ -132,4 +132,10 @@ const AUTOFILL_LAYOUT = `
     ::-webkit-scrollbar-thumb { background:var(--edge); border-radius:10px; }
     ::-webkit-scrollbar-track { background:var(--input); }
 
+  .help {margin:8px 0;font-size:11px;color:var(--muted);line-height:1.6;}
+  .help > summary,.card .help > summary {display:list-item;list-style:none;cursor:pointer;padding:5px 0;background:transparent;color:var(--muted);font-size:11px;font-weight:500;}
+  .help > summary::before {content:"▸ ";}
+  .help[open] > summary::before {content:"▾ ";}
+  .card .help > summary::after {content:none;}
+  .help p {margin:7px 0;}
 `;

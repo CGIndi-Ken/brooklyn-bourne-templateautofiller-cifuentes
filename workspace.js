@@ -187,7 +187,7 @@ function filterEntries() {
   const terms=$w("entrySearch").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   let visible=0, selected=0;
   for(const row of rows.values()) {const matches=terms.every((term)=>row.searchText.includes(term));row.element.hidden=!matches;if(matches){visible++;if(row.selected)selected++;}}
-  $w("completionSelection").textContent=`${selected} shown ${selected === 1 ? "product" : "products"} selected. Hidden and unchecked products stay unchanged.`;
+  $w("completionSelection").textContent=`${selected} shown ${selected === 1 ? "product" : "products"} selected.`;
   $w("bulkCompletion").querySelectorAll("[data-completion-action]").forEach((button)=>button.disabled=selected===0);
   $w("entrySearchStatus").textContent=`Showing ${visible} of ${rows.size} entries`;
   $w("noEntryMatches").hidden=!rows.size || visible>0;
@@ -199,7 +199,7 @@ function renderPanel(row) {
   const panel = row.element.querySelector(".entry-panel"); panel.replaceChildren();
   row.element.querySelectorAll("[data-tab]").forEach((button) => {button.setAttribute("aria-pressed", String(button.dataset.tab === row.tab));button.setAttribute("aria-expanded",String(button.dataset.tab === row.tab));});
   if (row.tab === "details") {
-    panel.append(node("p", "Type and Default unit: Quantity · SKU generated automatically", "sub"));
+    panel.append(node("p", "Quantity · automatic SKU", "sub"));
     for (const [key,label] of [["categoryPresetUnlocked","Unlock category presets"],["copyToLocation","Copy repeated fields to Location details"]]) {
       const wrapper = node("label", "", "check"); const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.dataset.field = key; checkbox.checked = !!row.values[key]; wrapper.append(checkbox,document.createTextNode(label)); panel.append(wrapper);
     }
@@ -208,10 +208,10 @@ function renderPanel(row) {
     panel.append(grid);
   } else if (row.tab === "description") {
     const copy = node("button", "Copy strain name + type"); copy.dataset.action = "copy";
-    panel.append(copy, node("p", "Paste only the reviewed paragraph. Saved with this entry; other descriptions stay untouched.", "sub"), fieldControl(FIELD_MAP.onlineDescription,row.values));
+    panel.append(copy, node("p", "Paste the reviewed description.", "sub"), fieldControl(FIELD_MAP.onlineDescription,row.values));
     panel.append(node("div", `${row.values.onlineDescription.length}/2500 characters`, "description-count sub"));
   } else if (row.tab === "changes") {
-    panel.append(node("p", "Compared with the starting template or shared settings. Blank fields are skipped during autofill; clearing a template field does not erase the value on Dutchie.", "sub"));
+    panel.append(node("p", "Compared with starting values. Blank fields are skipped during autofill.", "sub"));
     const table = node("table", "", "diff-table"); const head = table.createTHead().insertRow();
     for (const label of ["Field","Before","Now","Status"]) head.append(node("th",label));
     const body = table.createTBody();
@@ -369,7 +369,7 @@ function renderSavedChoices(refreshSource = true) {
     label.append(input,node("span",key));fragment.append(label);count++;
   }
   $w("savedChoices").replaceChildren(fragment);
-  $w("savedSearchStatus").textContent=count ? `${count} matching templates. Selections are kept when searching.` : "No matching templates.";
+  $w("savedSearchStatus").textContent=count ? `${count} matches` : "No matching templates.";
   updateSavedSelectionCount();
   if (refreshSource) {
     const source=$w("sharedSource").value;

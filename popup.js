@@ -144,9 +144,10 @@ function buildForm() {
       pairs[key] = pair;
       row.append(label, pair);
       if (key === "onlineDescription") {
-        const instructions = document.createElement("p");
-        instructions.className = "sub";
-        instructions.textContent = "1. Enter Name above. 2. Copy the prompt and paste it into ChatGPT. 3. Paste only the description paragraph here, review it, and Save template. Your draft is remembered when you close this popup.";
+        const instructions = document.createElement("details");instructions.className="help";
+        const how=document.createElement("summary");how.textContent="How to add a description";
+        const steps=document.createElement("p");steps.textContent="Copy the strain prompt into ChatGPT, then paste the reviewed description here and save. Unfinished work is kept as a local draft.";
+        instructions.append(how,steps);
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = "Copy strain name + type";
@@ -176,7 +177,7 @@ function buildForm() {
         const toggle = document.createElement("input");
         toggle.type = "checkbox";
         toggle.id = "unlockCategoryPreset";
-        toggleLabel.append(toggle, document.createTextNode("Unlock regulatory and external category presets"));
+        toggleLabel.append(toggle, document.createTextNode("Edit category pairings"));
         const hint = document.createElement("p");
         hint.className = "sub";
         hint.textContent = "These values follow the selected category. Unlock to edit; Remember saves the pairing for matching categories.";
@@ -189,7 +190,9 @@ function buildForm() {
             toast("Category pairings remembered for matching products.");
           } catch(e) {toast(e.message);}
         });
-        presetRow.append(toggleLabel, hint, remember);
+        const help=document.createElement("details");help.className="help";
+        const summary=document.createElement("summary");summary.textContent="About category pairings";help.append(summary,hint);
+        presetRow.append(toggleLabel, remember, help);
         body.appendChild(presetRow);
       }
     });
@@ -538,8 +541,8 @@ $("importFile").addEventListener("change", async () => {
   buildForm();
   const count = Object.keys(learned).length;
   $("learnedInfo").textContent = count
-    ? `${count} dropdown lists learned from Dutchie. To refresh them, use the Lists tab in the on-page panel.`
-    : `Dropdown lists appear here after you click "Learn dropdowns" on the Lists tab of the on-page panel. Until then, those fields are plain text boxes.`;
+    ? `${count} lists learned. Refresh them from the on-page Lists tab.`
+    : `Learn dropdown choices from the on-page Lists tab. Manual values also work.`;
   await refresh();
   const { templateDraft } = await chrome.storage.local.get("templateDraft");
   if (templateDraft && templateDraft.values) {
