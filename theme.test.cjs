@@ -3,11 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const {pathToFileURL} = require('node:url');
+const {launchBrowser} = require('./browser-test-helper.cjs');
 async function main() {
   for (const file of fs.readdirSync(__dirname).filter(f=>f.endsWith('.js'))) new vm.Script(fs.readFileSync(path.join(__dirname,file),'utf8'),{filename:file});
-  const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser = await chromium.launch({headless:true,channel:process.env.TEST_BROWSER_CHANNEL || 'chrome'});
+  const {browser, pageURL} = await launchBrowser();
   try {
     const ctx = await browser.newContext({viewport:{width:800,height:1100}});
     let storage={};
@@ -23,16 +22,16 @@ async function main() {
     });
     const errors=[];
     const popup=await ctx.newPage();popup.on('pageerror',e=>errors.push(e.message));
-    await popup.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);
+    await popup.goto(pageURL('popup.html'));
     await popup.waitForSelector('#f_name');
     assert.equal(await popup.locator('#themeSelect').inputValue(),'black-gold');
     const panel=await ctx.newPage();panel.on('pageerror',e=>errors.push(e.message));
     await panel.goto('about:blank');
     await panel.setContent('<body style="background:#292a2c"><div data-testid="product-detail-preview"></div></body>');
-    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
+    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
     await panel.locator('#box').waitFor({state:'visible'});
     fs.mkdirSync(path.join(__dirname,'previews'),{recursive:true});
-    const colors = {'black-gold':'rgb(16, 16, 16)','black-yellow':'rgb(16, 16, 16)','grey-maroon':'rgb(40, 40, 44)','forest-mint':'rgb(16, 39, 30)'};
+    const colors = {'black-gold':'rgb(17, 17, 19)','black-yellow':'rgb(17, 17, 17)','grey-maroon':'rgb(32, 33, 39)','forest-mint':'rgb(10, 28, 25)'};
     for(const [theme,bg] of Object.entries(colors)) {
       await popup.getByLabel('Theme',{exact:true}).selectOption(theme);
       await panel.waitForFunction(t=>[...document.querySelectorAll('div')].some(el=>el.shadowRoot && el.getAttribute('data-autofill-theme')===t),theme);

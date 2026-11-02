@@ -5,6 +5,39 @@
 //       "click"        -> a plain button that gets clicked
 // fixed: not stored in templates; applied on every fill
 // options: starting dropdown choices for the template designer (replaced by lists learned from Dutchie)
+// New products never inherit another product's pricing or weight.
+const NEW_TEMPLATE_DEFAULTS = Object.freeze({cost:"", medBasePrice:"", gramsConcentration:""});
+
+// Infer only the stated size at the start of the final formatted title section.
+// Pack counts stay separate from mass; dosage breakdowns and multipliers are ambiguous.
+function gramsFromTitle(title) {
+  if (typeof title !== "string" || !title.includes("|")) return "";
+  const section = title.slice(title.lastIndexOf("|") + 1).trim();
+  const match = section.match(/^(\d+(?:\.\d+)?|\.\d+)\s*(mg|g)(?=$|[\s,(])/i);
+  if (!match) return "";
+  let suffix = section.slice(match[0].length).trim();
+  if (/\b(?:THC[A-V]?|CBD[A-V]?|CBG[A-V]?|CBN|CBC|mg|g|kg|mcg|ug|oz|lb|ml)\b/i.test(suffix)) return "";
+  // Remove recognized strain-type markers before checking category/count labels.
+  suffix = suffix.replace(/\(\s*(?:S|H|I|I\s*\/?\s*H|S\s*\/?\s*H)\s*\)/gi, " ").trim();
+  const labels = suffix.split(",").map((label) => label.trim()).filter(Boolean);
+  const count = /^(?:\d+\s*(?:-?\s*(?:packs?|pk|ct|count|pcs|pieces|units?))?|(?:qty|quantity|count|pack)\s*[:=-]?\s*\d+)$/i;
+  const category = /^[a-z]+(?:[\s/-]+[a-z]+)*(?:\s*\([a-z]+(?:\s+[a-z]+)*\))?$/i;
+  if (labels.some((label) => {
+    if (count.test(label) || category.test(label)) return false;
+    // A count and category may share a comma section: "1g 2pk Prerolls (H)".
+    const words = label.split(/\s+/);
+    return !words.some((_, index) => index > 0 && count.test(words.slice(0, index).join(" ")) && category.test(words.slice(index).join(" ")));
+  })) return "";
+  // Shift decimal digits rather than dividing floats (e.g. 0.123mg -> 0.000123g).
+  const [whole = "", fraction = ""] = match[1].split(".");
+  const places = fraction.length + (match[2].toLowerCase() === "mg" ? 3 : 0);
+  const digits = (whole + fraction).padStart(places + 1, "0");
+  const integer = (places ? digits.slice(0, -places) : digits).replace(/^0+(?=\d)/, "");
+  const decimal = places ? digits.slice(-places).replace(/0+$/, "") : "";
+  const grams = integer + (decimal ? `.${decimal}` : "");
+  return Number.isFinite(Number(grams)) && Number(grams) > 0 ? grams : "";
+}
+
 const CATEGORY_PRESETS = {
   "flower": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "Bud/Flower - Each" },
   "ground flower": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "Bud/Flower - Each" },
@@ -14,9 +47,12 @@ const CATEGORY_PRESETS = {
   "preroll packs": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
   "prerolls": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
 };
+const categoryKey = (category) => String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "").trim();
+let rememberedCategoryPairings = {};
 const categoryPresetFor = (category) => {
-  const name = String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "");
-  return Object.hasOwn(CATEGORY_PRESETS, name) ? CATEGORY_PRESETS[name] : null;
+  const name = categoryKey(category);
+  if (Object.hasOwn(rememberedCategoryPairings,name)) return rememberedCategoryPairings[name];
+  return Object.hasOwn(CATEGORY_PRESETS,name) ? CATEGORY_PRESETS[name] : null;
 };
 
 const RETIRED_FIELD_KEYS = ["abbreviation", "upc", "alternateName", "lowStockThreshold", "maxPerTransaction", "allergens", "ingredients", "locMaxPerTransaction", "locReplenishment"];

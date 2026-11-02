@@ -13,12 +13,18 @@
   <div class="bar">
     <div class="theme-picker"><label for="themeSelect">Theme</label><select id="themeSelect" aria-label="Theme"></select></div>
     <div class="line">
-      <select id="templateSelect" aria-label="Saved templates"></select>
+      <select id="templateSelect" aria-label="Saved templates" hidden></select>
+      <button id="templatePickerToggle" aria-expanded="false" aria-controls="templatePickerPanel">Choose a saved template…</button>
       <button id="newBtn" title="Start a blank template">New</button>
       <button id="copyBtn" title="Copy the current template under a new name">Copy</button>
       <button id="deleteBtn" title="Delete the selected template">Delete</button>
     </div>
-    <input id="templateName" placeholder="Template name, e.g. Infused pre-roll 7g" aria-label="Template name">
+    <section id="templatePickerPanel" aria-label="Choose a saved template" hidden>
+      <input id="templatePickerSearch" type="search" aria-label="Search saved templates" placeholder="Search product, strain, brand or vendor…">
+      <div class="template-picker-tools"><select id="templatePickerSort" aria-label="Sort templates"><option value="asc">A–Z</option><option value="desc">Z–A</option></select><button id="templatePickerCollapse">Condense all</button><button id="templatePickerExpand">Expand all</button></div>
+      <p id="templatePickerStatus" role="status"></p><div id="templatePickerResults"></div>
+    </section>
+    <input id="templateName" placeholder="Template name" aria-label="Template name">
   </div>
 
   <div id="form"></div>
@@ -27,10 +33,10 @@
     <details class="card" id="bulkCard">
       <summary>Bulk template creation</summary>
       <div class="fields">
-        <p class="sub">Set shared settings above (category, pricing, vendor, brand, measurements, inventory), then paste one full product name per line. Each name becomes a template and its product Name. Existing names are skipped.</p>
+        <p class="sub">Paste one product name per line. Existing names are skipped.</p>
         <label for="bulkNames">Product names</label>
         <textarea id="bulkNames" rows="6" placeholder="Product name | Runtz | 3.5g (H)&#10;Product name | Grape Gas | 3.5g (I)"></textarea>
-        <p class="sub">Optional: paste three columns from a spreadsheet: Name, Strain, Description (tab-separated). Strain and description are blank unless supplied per row. External ID is left blank. All other settings above are shared, including THC.</p>
+        <details class="help"><summary>Spreadsheet format</summary><p>Name, Strain, Description — tab-separated, with an optional header. Quoted multiline descriptions are supported. Cost and price start blank; grams can come from the product name. Other shared settings carry over.</p></details>
         <button id="bulkPreviewBtn">Preview templates</button>
         <button id="bulkCreateBtn" class="gold-button" disabled>Create templates</button>
         <div id="bulkStatus" role="status" style="white-space:pre-wrap"></div>
@@ -42,7 +48,7 @@
     <button id="exportBtn">Export templates</button>
     <button id="importBtn">Import templates</button>
     <input id="importFile" type="file" accept=".json,application/json" hidden>
-    <p class="sub">Move the exported JSON file to another computer and import it there. Matching names are imported as separate copies.</p>
+    <details class="help"><summary>About backups</summary><p>Export saved templates and pairings as JSON. Import restores them; matching names become separate copies. Save drafts first.</p></details>
     <div id="transferStatus" role="status"></div>
   </div>
 
@@ -50,30 +56,35 @@
     <details class="card" open>
       <summary><span>Location details tab</span></summary>
       <div class="fields">
-        <label class="check"><input type="checkbox" id="copyLoc"> Also fill the repeated fields on the Location details tab</label>
-        <p class="sub">Copies base price, cost, external category, low stock threshold and external ID from this template. Available on POS and Available online are always set to Yes there, whether or not this is ticked.</p>
+        <label class="check"><input type="checkbox" id="copyLoc"> Copy values to Location details</label>
+        <details class="help"><summary>What gets copied?</summary><p>Price, cost, external category, stock threshold and external ID. POS and online availability are always Yes.</p></details>
       </div>
     </details>
   </div>
 
   <div class="foot">
-    <button id="saveBtn" class="gold-button">Save template</button>
+    <button id="saveBtn" class="gold-button" title="Save template (Ctrl+S / Cmd+S)">Save template</button>
     <div id="toast" role="status"></div>
   </div>
 
-  <div class="note" id="learnedInfo"></div>
-  <div class="note">To fill several product tabs in a row, use "Fill every tab" in the on-page panel or press Alt+Shift+Z.</div>
-  <div class="note">Blank fields are skipped. Type and Default unit are always Quantity. Sync to METRC is always Yes, and SKU generation runs when the SKU is empty.</div>
-  <div class="note">Online details is filled last: Name is copied into Online title, followed by your saved Online description.</div>
+  <details class="note help" id="popupHelp"><summary>Help & shortcuts</summary>
+    <p>Save this template: Ctrl+S (Cmd+S on Mac).</p>
+    <p id="learnedInfo"></p>
+    <p>Blank fields are skipped. Quantity and METRC sync are automatic; SKU generates only when empty.</p>
+    <p>Online title copies Name. Descriptions are filled last.</p>
+    <p>Fill multiple tabs: use the on-page panel or Alt+Shift+Z.</p>
+  </details>
 
 </section>
 <section id="bulkView" hidden><iframe id="bulkWorkspace" title="Bulk template editor"></iframe></section>
 <section id="directoryView" hidden><iframe id="directoryWorkspace" title="Brand and vendor directory"></iframe></section>
   <script src="theme.js"></script>
-  <script src="fields.js"></script>
+  <script src="fields.js"></script><script src="category-pairings.js"></script>
   <script src="description.js"></script>
   <script src="bulk.js"></script>
   <script src="workspace-model.js"></script>
+  <script src="template-picker-style.js"></script>
+  <script src="template-picker.js"></script>
   <script src="popup.js"></script>
   <script src="popup-views.js"></script>
 </body>

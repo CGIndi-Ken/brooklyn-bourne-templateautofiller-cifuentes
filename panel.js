@@ -8,7 +8,8 @@ shadow.innerHTML = `
   <style>
     ${AUTOFILL_THEME}
     ${AUTOFILL_LAYOUT}
-    .box { max-width:calc(100vw - 44px); max-height:80vh; overflow:auto; border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 20px #0004; }
+    ${TEMPLATE_PICKER_CSS}
+    .box { max-width:calc(100vw - 44px); max-height:80vh; overflow:auto; border:1px solid var(--line); border-radius:var(--panel-radius); box-shadow:0 6px 20px #0004; }
     .head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .hide { color:var(--gold); }
     .pill { padding:12px 20px; border:1px solid var(--line); border-radius:12px; color:var(--gold);
@@ -32,7 +33,13 @@ shadow.innerHTML = `
     <div class="stripe"></div>
     <div class="bar">
       <div class="theme-picker"><label for="panelTheme">Theme</label><select id="panelTheme" aria-label="Theme"></select></div>
-      <select id="tpl" aria-label="Template"></select>
+      <select id="tpl" aria-label="Template" hidden></select>
+      <button id="templatePickerToggle" aria-expanded="false" aria-controls="templatePickerPanel">Choose a saved template…</button>
+      <section id="templatePickerPanel" aria-label="Choose an autofill template" hidden>
+        <input id="templatePickerSearch" type="search" aria-label="Search saved templates" placeholder="Search product, strain, brand or vendor…">
+        <div class="template-picker-tools"><select id="templatePickerSort" aria-label="Sort templates"><option value="asc">A–Z</option><option value="desc">Z–A</option></select><button id="templatePickerCollapse">Condense all</button><button id="templatePickerExpand">Expand all</button></div>
+        <p id="templatePickerStatus" role="status"></p><div id="templatePickerResults"></div>
+      </section>
       <div class="tabs" id="tabs"></div>
     </div>
     <div class="body">
@@ -41,16 +48,16 @@ shadow.innerHTML = `
           <div class="section-heading">Fill product</div>
           <div class="fields">
             <button class="primary gold-button" id="all">Fill all</button>
-            <p class="sub">Fills this product using your template. Shortcut: Alt+Shift+A</p>
+            <details class="help"><summary>Shortcut</summary><p>Fill this product: Alt+Shift+A</p></details>
           </div>
         </section>
         <section class="card">
-          <div class="section-heading">All open Dutchie tabs</div>
+          <div class="section-heading">Multiple tabs</div>
           <div class="fields">
             <label class="field" for="batchTpl">Template for all tabs</label>
             <select id="batchTpl" aria-label="Template for all tabs"></select>
             <button class="wide" id="allTabs">Fill every tab, one by one</button>
-            <p class="sub">Switches to each product tab in this window, fills it, then comes back here. Shortcut: Alt+Shift+Z</p>
+            <details class="help"><summary>How it works</summary><p>Fills product tabs in this window, then returns here. Shortcut: Alt+Shift+Z.</p></details>
           </div>
         </section>
       </div>
@@ -59,7 +66,7 @@ shadow.innerHTML = `
         <div class="fields">
           <div id="next"></div>
           <div class="row" id="stepRow"></div>
-          <p class="sub">One field at a time. Open a dropdown first to use it for the next step. Next: Alt+Shift+N</p>
+          <p class="sub">Next fills one step. Shortcut: Alt+Shift+N.</p>
         </div>
       </section>
       <section class="tab card" id="tab-fields" hidden>
@@ -70,7 +77,7 @@ shadow.innerHTML = `
         <div class="section-heading">Learn dropdown lists</div>
         <div class="fields">
           <div class="grid" id="learnGrid"></div>
-          <p class="sub">Reads this page's lists for the template maker. Pick a Category first so Regulatory category loads correctly.</p>
+          <p class="sub">Choose a category before learning its lists.</p>
         </div>
       </section>
       <div id="statusArea" hidden>
@@ -84,6 +91,7 @@ document.documentElement.appendChild(host);
 const $s = (id) => shadow.getElementById(id);
 initThemeSelector($s("panelTheme"), host);
 const tplSelect = $s("tpl");
+const panelTemplatePicker=createTemplatePicker(tplSelect,shadow);
 const batchTpl = $s("batchTpl");
 const statusEl = $s("status");
 const nextEl = $s("next");
@@ -133,6 +141,7 @@ function makeButton(text, onPress, parent, cls) {
     (e) => {
       if (e.target !== host) return;
       const path = e.composedPath();
+      if (path.some((node)=>node.classList?.contains("template-picker-ui"))) return;
       const btn = path.find((n) => n.tagName === "BUTTON");
       if (!btn) return; // let the <select>s behave normally
       e.stopPropagation();
@@ -184,17 +193,20 @@ function fillSelectOptions(select, names, firstLabel) {
 function renderTemplates() {
   const names = Object.keys(templates);
   fillSelectOptions(tplSelect, names);
+  panelTemplatePicker.update(templates);
   fillSelectOptions(batchTpl, names, "Each tab's own template");
   resetSteps();
   renderStep();
 }
 
 async function loadTemplates() {
+  if (typeof categoryPairingsReady !== "undefined") await categoryPairingsReady;
   const stored = await chrome.storage.local.get("templates");
   templates = stored.templates || {};
   renderTemplates();
 }
 loadTemplates();
+document.addEventListener("categoryPairingsChanged",() => {resetSteps();renderStep();});
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.templates) {
     templates = changes.templates.newValue || {};
@@ -258,8 +270,9 @@ function renderStep() {
 
 async function doNext() {
   if (stepIdx >= steps.length) return renderStep();
-  const result = await run(steps[stepIdx].defs, { reuseOpen: true });
-  if (result && !result.busy && !result.problems.length) stepIdx++; // stay on this step if a run is already active or failed
+  const step = steps[stepIdx];
+  const result = await run(step.defs, { reuseOpen: true });
+  if (steps[stepIdx] === step && result && !result.busy && !result.problems.length) stepIdx++; // stay on this step if a run is already active or failed
   renderStep();
 }
 
@@ -289,6 +302,7 @@ async function fillThisTab(templateName) {
   if (!template) return { skipped: templateName ? `Template "${templateName}" not found` : "No template selected" };
 
   tplSelect.value = name;
+  panelTemplatePicker.sync();
   resetSteps();
   renderStep();
   const r = await runFields(FIELD_DEFS, template, { reuseOpen: false });

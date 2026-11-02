@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const {pathToFileURL} = require('node:url');
+const {launchBrowser} = require('./browser-test-helper.cjs');
 
 async function main() {
   let textEvents = 0;
@@ -15,8 +15,7 @@ async function main() {
   assert.equal(fixture.fillText({label:'Name'},'New value'),'');
   assert.equal(textEvents,4);
 
-  const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-  const browser = await chromium.launch({headless:true,channel:process.env.TEST_BROWSER_CHANNEL || 'chrome'});
+  const {browser, pageURL} = await launchBrowser();
   try {
     const context = await browser.newContext();
     const storage = {};
@@ -25,16 +24,16 @@ async function main() {
     await context.exposeBinding('writeStorage',(_,data)=>{if(data.templateDraft)draftWrites++;Object.assign(storage,data);});
     await context.exposeBinding('removeStorage',(_,key)=>{delete storage[key];});
     await context.addInitScript(()=>{
-      window.chrome={storage:{local:{get:key=>window.readStorage(key),set:data=>window.writeStorage(data),remove:key=>window.removeStorage(key)},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(){}}}};
+      window.chrome={storage:{local:{get:key=>window.readStorage(key),set:async data=>{await window.writeStorage(data);if(data.templateDraft)window.lastSavedDraft=data.templateDraft;},remove:key=>window.removeStorage(key)},onChanged:{addListener(){}}},runtime:{onMessage:{addListener(){}}}};
     });
     const page = await context.newPage();
-    await page.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);
+    await page.goto(pageURL('popup.html'));
     await page.waitForSelector('#f_name');
     await page.evaluate(()=>{
       const el=document.getElementById('f_name');
       for(let i=0;i<50;i++){el.value+='x';el.dispatchEvent(new Event('input',{bubbles:true}));}
     });
-    await new Promise(resolve=>setTimeout(resolve,250));
+    await page.waitForFunction(()=>window.lastSavedDraft?.values.name.length===50);
     assert.equal(storage.templateDraft?.values.name.length,50);
     assert.equal(draftWrites,1,'A burst of input should create one draft write');
     await page.evaluate(()=>document.getElementById('f_name').dispatchEvent(new Event('input',{bubbles:true})));
@@ -61,7 +60,7 @@ async function main() {
       document.querySelector=(selector)=>{if(selector==='[data-testid^="product-detail"]')window.formQueries++;return query(selector);};
       window.setInterval=(...args)=>{window.intervals++;return interval(...args);};
     });
-    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
+    for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
     const visible=()=>panel.locator('#box').isVisible();
     assert.equal(await visible(),false);
     await panel.evaluate(()=>{const el=document.createElement('div');el.id='probe';el.dataset.testid='product-detail-preview';document.getElementById('route').append(el);});

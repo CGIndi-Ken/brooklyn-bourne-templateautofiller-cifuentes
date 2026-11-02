@@ -15,7 +15,7 @@ function fillText(def, value) {
 }
 
 // Searchable list: type to filter, falling back to scrolling the full list.
-async function fillAutocomplete(def, value, opts) {
+async function fillAutocomplete(def, value, opts = {}) {
   const field = elFor(def);
   if (!field) return `${def.label}: field not found`;
 
@@ -72,9 +72,18 @@ async function fillMultiAutocomplete(def, value, opts) {
 }
 
 // MUI Select shown as a <div> that opens a menu of <li role="option"> rows.
-async function fillSelect(def, value, opts) {
+async function fillSelect(def, value, opts = {}) {
   const enforceQuantity = def.key === "type" || def.key === "defaultUnit";
   if (enforceQuantity) value = "Quantity";
+  const selected = () => {
+    const current = elFor(def);
+    if (!current) return false;
+    const trigger = pickTrigger(current);
+    const text = (trigger.textContent || "").replace(/\u200b/g, "").trim();
+    const input = current.querySelector("input");
+    return text === "Quantity" || current.value === "Quantity" || input?.value === "Quantity";
+  };
+  if (enforceQuantity && !anyOptionsOpen() && selected()) return "";
   for (let attempt = 0; attempt < (enforceQuantity ? 2 : 1); attempt++) {
     const el = elFor(def);
     if (!el) return `${def.label}: field not found`;
@@ -91,14 +100,6 @@ async function fillSelect(def, value, opts) {
     option.click();
     await sleep(300);
     if (!enforceQuantity) return "";
-    const selected = () => {
-      const current = elFor(def);
-      if (!current) return false;
-      const trigger = pickTrigger(current);
-      const text = (trigger.textContent || "").replace(/\u200b/g, "").trim();
-      const input = current.querySelector("input");
-      return text === "Quantity" || current.value === "Quantity" || input?.value === "Quantity";
-    };
     if (await waitFor(selected, 2000)) return "";
   }
   return `${def.label}: couldn't confirm Quantity after two attempts`;
@@ -169,19 +170,18 @@ async function ensureTab(tab, probe) {
     const el = elFor(probe);
     return !!(el && el.offsetParent !== null);
   };
-  const ready = () => {
+  const selected = () => {
     const btn = tabButton();
     return btn && btn.hasAttribute("aria-selected") ? btn.getAttribute("aria-selected") === "true" : visible();
   };
+  const ready = () => selected() && visible();
 
   if (ready()) return true;
-  const btn = tabButton();
-  if (!btn) return false;
-  openElement(btn);
-  const ok = await waitFor(ready, 3000);
-  if (ok) {
-    await waitFor(visible, 2000);
-    await sleep(300); // let the tab's fields appear
+  // A selected tab may still be mounting its fields. Do not click it again.
+  if (!selected()) {
+    const btn = tabButton();
+    if (!btn) return false;
+    openElement(btn);
   }
-  return !!ok;
+  return !!(await waitFor(ready, 5000));
 }

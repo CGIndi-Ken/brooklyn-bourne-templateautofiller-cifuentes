@@ -1,13 +1,15 @@
 const themeStyle = document.createElement("style");
-themeStyle.textContent = AUTOFILL_THEME + AUTOFILL_LAYOUT;
+themeStyle.textContent = AUTOFILL_THEME + AUTOFILL_LAYOUT + TEMPLATE_PICKER_CSS;
 document.head.prepend(themeStyle);
 const $ = (id) => document.getElementById(id);
 initThemeSelector($("themeSelect"), document.documentElement);
+const templatePicker=createTemplatePicker($("templateSelect"));
 const DEFS = Object.fromEntries(FIELD_DEFS.map((d) => [d.key, d]));
 const STORED_DEFS = FIELD_DEFS.filter((d) => !d.fixed && !d.copyOf);
 let learned = {};
 let sections = []; // { keys, countEl }
 let storedControls = [];
+let gramsAuto=true;
 
 async function getTemplates() {
   const { templates } = await chrome.storage.local.get("templates");
@@ -48,6 +50,12 @@ function setCategoryPresetUnlocked(unlocked) {
   });
 }
 
+function updateGramsFromName(recompute = false) {
+  const inferred=gramsFromTitle($("f_name")?.value || "");
+  if (recompute && gramsAuto) setValue(DEFS.gramsConcentration,inferred);
+  const button=$("useTitleWeight");
+  if (button) {button.disabled=!inferred;button.title=inferred ? `Use ${inferred} g total from Name` : "Add a weight such as 3.5g or 100mg after the last | in Name";}
+}
 function makeControl(def) {
   const opts = optionsFor(def);
   const frag = document.createDocumentFragment();
@@ -76,7 +84,7 @@ function makeControl(def) {
   if (def.maxLength) el.maxLength = def.maxLength;
   if (def.key === "onlineDescription") el.rows = 6;
 
-  if (def.type === "autocomplete" && opts && !def.multi) {
+  if (def.type === "autocomplete" && opts && !def.multi && !["vendor", "brand", "strain"].includes(def.key)) {
     const dl = document.createElement("datalist");
     dl.id = `dl_${def.key}`;
     opts.forEach((o) => dl.appendChild(new Option(o)));
@@ -142,10 +150,17 @@ function buildForm() {
       pair.appendChild(ctl);
       pairs[key] = pair;
       row.append(label, pair);
+      if (key === "gramsConcentration") {
+        const fromName=document.createElement("button");fromName.type="button";fromName.id="useTitleWeight";
+        fromName.className="weight-from-name";fromName.textContent="From name";fromName.setAttribute("aria-label","Use total weight from name");
+        fromName.addEventListener("click",()=>{if(!gramsFromTitle($("f_name").value)) return;gramsAuto=true;updateGramsFromName(true);updateCounts();invalidateBulk();scheduleDraft();});
+        row.append(fromName);
+      }
       if (key === "onlineDescription") {
-        const instructions = document.createElement("p");
-        instructions.className = "sub";
-        instructions.textContent = "1. Enter Name above. 2. Copy the prompt and paste it into ChatGPT. 3. Paste only the description paragraph here, review it, and Save template. Your draft is remembered when you close this popup.";
+        const instructions = document.createElement("details");instructions.className="help";
+        const how=document.createElement("summary");how.textContent="How to add a description";
+        const steps=document.createElement("p");steps.textContent="Copy the strain prompt into ChatGPT, then paste the reviewed description here and save. Unfinished work is kept as a local draft.";
+        instructions.append(how,steps);
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = "Copy strain name + type";
@@ -175,11 +190,22 @@ function buildForm() {
         const toggle = document.createElement("input");
         toggle.type = "checkbox";
         toggle.id = "unlockCategoryPreset";
-        toggleLabel.append(toggle, document.createTextNode("Unlock regulatory and external category presets"));
+        toggleLabel.append(toggle, document.createTextNode("Edit category pairings"));
         const hint = document.createElement("p");
         hint.className = "sub";
-        hint.textContent = "These values follow the selected category unless unlocked.";
-        presetRow.append(toggleLabel, hint);
+        hint.textContent = "These values follow the selected category. Unlock to edit; Remember saves the pairing for matching categories.";
+        const remember=document.createElement("button");remember.type="button";remember.id="rememberCategoryPair";
+        remember.textContent="Remember these category pairings";
+        remember.addEventListener("click",async () => {
+          try {
+            const pair=readTemplateForm();
+            await rememberCategoryPairings([pair]);
+            toast("Category pairings remembered for matching products.");
+          } catch(e) {toast(e.message);}
+        });
+        const help=document.createElement("details");help.className="help";
+        const summary=document.createElement("summary");summary.textContent="About category pairings";help.append(summary,hint);
+        presetRow.append(toggleLabel, remember, help);
         body.appendChild(presetRow);
       }
     });
@@ -189,6 +215,7 @@ function buildForm() {
     sections.push({ controls: sec.keys.map((key) => $(`f_${key}`)).filter(Boolean), countEl });
   });
   storedControls = STORED_DEFS.map((def) => ({ def, el: $(`f_${def.key}`) }));
+  Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
   setCategoryPresetUnlocked(false);
   updateCounts();
 }
@@ -209,7 +236,7 @@ function setValue(def, value) {
   if (el.tagName === "SELECT" && value && ![...el.options].some((o) => o.value === value)) {
     el.appendChild(new Option(value, value)); // keep a saved value even if it isn't in the list
   }
-  el.value = value || "";
+  el.value = value ?? "";
 }
 
 function loadSelected(templates) {
@@ -218,12 +245,15 @@ function loadSelected(templates) {
   if (!t) return;
   $("templateName").value = name;
   STORED_DEFS.forEach((d) => setValue(d, t[d.key]));
+  gramsAuto=t.inferGramsFromTitle === true;
+  updateGramsFromName();
   $("copyLoc").checked = !!t.copyToLocation;
   setCategoryPresetUnlocked(!!t.categoryPresetUnlocked);
   applyCategoryDefaults();
   updateCounts();
   resetDescriptionPrompt();
-  saveDraft();
+  document.dispatchEvent(new Event("templateFormLoaded"));
+  saveDraft().catch(() => toast("Couldn't save draft."));
 }
 
 function resetDescriptionPrompt() {
@@ -235,6 +265,12 @@ function resetDescriptionPrompt() {
 let draftTimer;
 let draftDirty = false;
 let lastDraft = "";
+let draftWrite = Promise.resolve();
+function queueDraftWrite(write) {
+  const pending = draftWrite.then(write);
+  draftWrite = pending.catch(() => {});
+  return pending;
+}
 function scheduleDraft() {
   draftDirty = true;
   clearTimeout(draftTimer);
@@ -243,17 +279,22 @@ function scheduleDraft() {
 function flushDraft() {
   if (draftDirty) saveDraft().catch(() => toast("Couldn't save draft. Save your template before closing."));
 }
+function templateDraftState() {
+  const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
+  return { values, inferGramsFromTitle:gramsAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+}
 async function saveDraft() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
-  const templateDraft = { values, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+  const templateDraft = templateDraftState();
   const serialized = JSON.stringify(templateDraft);
-  if (serialized === lastDraft) return;
-  try {
-    await chrome.storage.local.set({ templateDraft });
-    lastDraft = serialized;
-  } catch (e) { draftDirty = true; throw e; }
+  return queueDraftWrite(async () => {
+    if (serialized === lastDraft) return;
+    try {
+      await chrome.storage.local.set({ templateDraft });
+      lastDraft = serialized;
+    } catch (e) { draftDirty = true; throw e; }
+  });
 }
 window.addEventListener("pagehide", flushDraft);
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(); });
@@ -282,17 +323,23 @@ async function copyDescriptionPrompt() {
 function clearTemplateForm() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  lastDraft = "";
-  STORED_DEFS.forEach((d) => setValue(d, ""));
+  gramsAuto=true;
+  STORED_DEFS.forEach((d) => setValue(d, NEW_TEMPLATE_DEFAULTS[d.key] ?? ""));
+  updateGramsFromName();
   $("copyLoc").checked = false;
   setCategoryPresetUnlocked(false);
   $("templateName").value = "";
   $("templateSelect").value = "";
+  templatePicker.sync();
   updateCounts();
   resetDescriptionPrompt();
   $("bulkNames").value = "";
   invalidateBulk();
-  chrome.storage.local.remove("templateDraft");
+  document.dispatchEvent(new Event("templateFormLoaded"));
+  return queueDraftWrite(async () => {
+    await chrome.storage.local.remove("templateDraft");
+    lastDraft = "";
+  });
 }
 
 let toastTimer;
@@ -303,18 +350,24 @@ function toast(msg) {
 }
 
 async function refresh() {
-  const templates = await getTemplates();
-  const select = $("templateSelect");
-  select.innerHTML = "";
-  select.appendChild(new Option("Select a saved template", ""));
-  Object.keys(templates).forEach((name) => select.appendChild(new Option(name, name)));
-  loadSelected(templates);
+  refreshTemplateChoices(await getTemplates());
 }
+function refreshTemplateChoices(templates) {
+  const select = $("templateSelect");
+  const selected = select.value;
+  select.replaceChildren(new Option("Select a saved template", ""),
+    ...Object.keys(templates).map((name) => new Option(name, name)));
+  select.value = Object.hasOwn(templates, selected) ? selected : "";
+  templatePicker.update(templates);
+}
+chrome.storage.onChanged.addListener((changes,area)=>{if(area === "local" && changes.templates) refreshTemplateChoices(changes.templates.newValue || {});});
 
 $("templateSelect").addEventListener("change", async () => loadSelected(await getTemplates()));
 function onFormEdit(event) {
   const selection = event.target.matches('select, input[type="checkbox"]');
   if ((event.type === "input" && selection) || (event.type === "change" && !selection)) return;
+  if (event.target.id === "f_gramsConcentration") gramsAuto=false;
+  if (event.target.id === "f_name") updateGramsFromName(true);
   if (event.target.id === "f_category") applyCategoryDefaults(true);
   if (event.target.id === "unlockCategoryPreset") {
     setCategoryPresetUnlocked(event.target.checked);
@@ -330,17 +383,21 @@ $("templateName").addEventListener("input", scheduleDraft);
 $("copyLoc").addEventListener("change", () => { invalidateBulk(); scheduleDraft(); });
 
 $("newBtn").addEventListener("click", () => {
-  clearTemplateForm();
+  clearTemplateForm().catch(() => toast("Couldn't clear draft."));
   $("templateName").focus();
 });
 
 $("copyBtn").addEventListener("click", () => {
   const name = $("templateName").value.trim();
   if (!name) return toast("Nothing to copy yet.");
+  Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
+  gramsAuto=true;updateGramsFromName(true);
+  updateCounts();
+  invalidateBulk();
   $("templateName").value = `${name} copy`;
   $("templateName").focus();
   $("templateName").select();
-  saveDraft();
+  saveDraft().catch(() => toast("Couldn't save draft."));
   toast("Rename it, then click Save.");
 });
 
@@ -352,21 +409,40 @@ function readTemplateForm() {
   data.categoryPresetUnlocked = $("unlockCategoryPreset").checked;
   applyTemplatePreset(data);
   data.copyToLocation = $("copyLoc").checked;
+  data.inferGramsFromTitle=gramsAuto;
   if (data.onlineDescription.length > 2500) throw new Error("Description exceeds 2500 characters.");
   return data;
 }
 
+let templateEditorInitialized = false;
 $("saveBtn").addEventListener("click", async () => {
+  if ($("saveBtn").disabled) return;
   const name = $("templateName").value.trim();
   if (!name) { $("templateName").focus(); return toast("Enter a template name."); }
   let data;
   try { data = readTemplateForm(); } catch (e) { return toast(e.message); }
-  const templates = await getTemplates();
-  templates[name] = data;
-  await chrome.storage.local.set({ templates });
-  await refresh();
-  clearTemplateForm();
-  toast(`Saved "${name}"`);
+  const original = JSON.stringify(templateDraftState());
+  $("saveBtn").disabled = true;
+  try {
+    const templates = await getTemplates();
+    Object.defineProperty(templates, name, {value:data, enumerable:true, writable:true, configurable:true});
+    await chrome.storage.local.set({ templates });
+    await refresh();
+    // Keep edits made while storage was busy instead of resetting the newer form.
+    if (JSON.stringify(templateDraftState()) === original) {
+      await clearTemplateForm();
+    }
+    toast(`Saved "${name}"`);
+  } catch (e) { toast(`Save failed: ${e.message}`); }
+  finally { $("saveBtn").disabled = false; }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey ||
+      !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s" ||
+      !templateEditorInitialized || $("templateView").hidden || $("saveBtn").disabled) return;
+  event.preventDefault();
+  $("saveBtn").click();
 });
 
 function invalidateBulk() {
@@ -413,8 +489,9 @@ $("exportBtn").addEventListener("click", async () => {
   try {
     const templates = await getTemplates();
     const {brandDirectory = []} = await chrome.storage.local.get("brandDirectory");
+    const {categoryPairings = {}} = await chrome.storage.local.get("categoryPairings");
     const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,removeRetiredFields({...template})]));
-    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -437,6 +514,10 @@ $("importFile").addEventListener("change", async () => {
     if (!isObject(backup) || backup.format !== "brooklyn-bourne-templates" || backup.version !== 1 || !isObject(backup.templates)) {
       throw new Error("Choose a template export from this extension.");
     }
+    let importedPairings;
+    if (backup.categoryPairings !== undefined) {
+      importedPairings={...validateCategoryPairings((await chrome.storage.local.get("categoryPairings")).categoryPairings || {}),...validateCategoryPairings(backup.categoryPairings)};
+    }
     // Validate every entry before saving anything; accept only known editable fields.
     const entries = Object.entries(backup.templates).map(([name, template]) => {
       if (!name.trim() || !isObject(template)) throw new Error("Invalid template in file.");
@@ -449,18 +530,23 @@ $("importFile").addEventListener("change", async () => {
       }
       if (template.copyToLocation !== undefined && typeof template.copyToLocation !== "boolean") throw new Error(`Invalid location setting in "${name}".`);
       if (template.categoryPresetUnlocked !== undefined && typeof template.categoryPresetUnlocked !== "boolean") throw new Error(`Invalid category preset setting in "${name}".`);
+      if (template.inferGramsFromTitle !== undefined && typeof template.inferGramsFromTitle !== "boolean") throw new Error(`Invalid weight setting in "${name}".`);
+      clean.inferGramsFromTitle=template.inferGramsFromTitle === true;
       clean.copyToLocation = !!template.copyToLocation;
       clean.categoryPresetUnlocked = template.categoryPresetUnlocked === true;
       applyTemplatePreset(clean);
+      const key=categoryKey(clean.category);
+      if (!clean.categoryPresetUnlocked && importedPairings && Object.hasOwn(importedPairings,key)) Object.assign(clean,importedPairings[key]);
       return [name.trim(), clean];
     });
     const templates = await getTemplates();
     let brandDirectory;
     if (backup.brandDirectory !== undefined) {
       if (!Array.isArray(backup.brandDirectory)) throw new Error("Invalid brand directory in file.");
-      brandDirectory = (await chrome.storage.local.get("brandDirectory")).brandDirectory || [];
+      brandDirectory = ((await chrome.storage.local.get("brandDirectory")).brandDirectory || []).filter((entry)=>isSelectableVendor(entry.vendor));
       for (const entry of backup.brandDirectory) {
         if (!isObject(entry) || typeof entry.vendor !== "string" || !Array.isArray(entry.brands) || !entry.brands.every((brand) => typeof brand === "string")) throw new Error("Invalid vendor/brand pair in file.");
+        if (!isSelectableVendor(entry.vendor)) continue;
         const existing = brandDirectory.find((item) => item.vendor.toLowerCase() === entry.vendor.trim().toLowerCase());
         brandDirectory = mergeVendor(brandDirectory,entry.vendor,[...(existing?.brands || []),...entry.brands]);
       }
@@ -471,7 +557,7 @@ $("importFile").addEventListener("change", async () => {
       while (Object.hasOwn(templates, target)) target = `${name} (imported ${count++})`;
       Object.defineProperty(templates, target, { value: template, enumerable: true, writable: true, configurable: true });
     }
-    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}) });
+    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}), ...(importedPairings ? {categoryPairings:importedPairings} : {}) });
     await refresh();
     $("transferStatus").textContent = `Imported ${entries.length} templates. Existing templates were preserved.`;
   } catch (e) {
@@ -482,16 +568,18 @@ $("importFile").addEventListener("change", async () => {
 });
 
 (async () => {
+  await categoryPairingsReady;
   learned = await getLearned();
   buildForm();
   const count = Object.keys(learned).length;
   $("learnedInfo").textContent = count
-    ? `${count} dropdown lists learned from Dutchie. To refresh them, use the Lists tab in the on-page panel.`
-    : `Dropdown lists appear here after you click "Learn dropdowns" on the Lists tab of the on-page panel. Until then, those fields are plain text boxes.`;
+    ? `${count} lists learned. Refresh them from the on-page Lists tab.`
+    : `Learn dropdown choices from the on-page Lists tab. Manual values also work.`;
   await refresh();
   const { templateDraft } = await chrome.storage.local.get("templateDraft");
   if (templateDraft && templateDraft.values) {
     STORED_DEFS.forEach((d) => setValue(d, templateDraft.values[d.key]));
+    gramsAuto=templateDraft.inferGramsFromTitle === true;
     $("templateName").value = templateDraft.name || "";
     $("templateSelect").value = templateDraft.selected || "";
     $("copyLoc").checked = !!templateDraft.copyToLocation;
@@ -500,5 +588,8 @@ $("importFile").addEventListener("change", async () => {
     $("bulkNames").value = templateDraft.bulkNames || "";
     updateCounts();
   }
+  updateGramsFromName();
+  templatePicker.sync();
+  templateEditorInitialized = true;
   document.dispatchEvent(new Event("templateEditorReady"));
 })();

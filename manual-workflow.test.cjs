@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const { pathToFileURL } = require('node:url');
+const {launchBrowser} = require('./browser-test-helper.cjs');
 const path = require('node:path');
 const calls = [];
 const context = vm.createContext({
@@ -22,6 +22,7 @@ async function main() {
   }
   assert.equal(context.strainFromTitle('Runtz (h)').strain, 'Runtz');
   assert.equal(context.strainFromTitle('Runtz | 3.5g (H)').strain, 'Runtz');
+  assert.equal(context.descriptionPrompt('  Runtz (H)  '), 'Runtz (H)');
   assert.throws(() => context.strainFromTitle('Runtz'), /strain type/);
   const prompt = context.descriptionPrompt('Product name | Runtz | 3.5g (H)');
   assert.equal(prompt, 'Runtz (H)');
@@ -34,8 +35,7 @@ async function main() {
   console.log('Passed parser, prompt, fill order, blank-description compatibility, steps, and JavaScript syntax checks.');
 
   if (!process.env.PLAYWRIGHT_MODULE) return;
-  const { chromium } = require(process.env.PLAYWRIGHT_MODULE);
-  const browser = await chromium.launch({headless:true, ...(process.env.TEST_BROWSER_CHANNEL ? {channel:process.env.TEST_BROWSER_CHANNEL} : {})});
+  const {browser, pageURL} = await launchBrowser();
   try {
     const page = await browser.newPage({viewport:{width:440,height:900}});
     const errors = [];
@@ -49,7 +49,7 @@ async function main() {
       }}};
       Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{writeText: async text => {window.copiedPrompt=text;}}});
     });
-    await page.goto(pathToFileURL(path.join(__dirname,'popup.html')).href);
+    await page.goto(pageURL('popup.html'));
     await page.locator('#f_name').fill('Product name | Runtz | 3.5g (H)');
     await page.locator('#templateName').fill('Runtz test');
     await page.getByRole('button',{name:'Copy strain name + type'}).click();
@@ -61,7 +61,7 @@ async function main() {
     await page.getByRole('button',{name:'Save template',exact:true}).click();
     await page.waitForFunction(() => JSON.parse(localStorage.testStorage).templates?.['Runtz test']?.onlineDescription === 'Reviewed description');
     await page.reload();
-    await page.locator('#templateSelect').selectOption('Runtz test');
+    await page.locator('#templateSelect').selectOption('Runtz test',{force:true});
     await page.waitForFunction(() => document.getElementById('f_onlineDescription').value === 'Reviewed description');
     assert.equal(await page.locator('#f_onlineDescription').getAttribute('maxlength'),'2500');
     await page.evaluate(() => Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied');}}, configurable:true}));
@@ -83,7 +83,7 @@ async function main() {
     await page.getByRole('button',{name:'Create templates',exact:true}).click();
     await page.waitForFunction(()=>document.getElementById('bulkStatus').textContent.includes('Created 2 templates; skipped 1'));
     const stored=await page.evaluate(()=>JSON.parse(localStorage.testStorage).templates);
-    assert.equal(stored['Bulk Runtz (H)'].medBasePrice,'30');
+    assert.equal(stored['Bulk Runtz (H)'].medBasePrice,'');
     assert.equal(stored['Bulk Runtz (H)'].onlineDescription,'');
     assert.equal(stored['Bulk Grape (I)'].onlineDescription,'Grape description');
     assert.equal(stored['Runtz test'].onlineDescription,'Reviewed description');
