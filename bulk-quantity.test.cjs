@@ -18,7 +18,8 @@ const edibles=context.buildBulkTemplates('Edible',{category:'Edibles (New Catego
 assert.equal(edibles.regulatoryCategory,'Gel-based foods');
 assert.equal(edibles.externalCategory,'Infused Edible - Each');
 assert.equal(result.templates['Runtz (H)'].onlineDescription,'');
-assert.equal(result.templates['Runtz (H)'].strain,'');
+assert.equal(result.templates['Runtz (H)'].strain,'Hybrid');
+assert.equal(result.templates['Runtz (H)'].tags,'Hybrid');
 assert.equal(result.templates['Grape Gas (I)'].onlineDescription,'Reviewed grape description');
 assert.equal(result.templates['Grape Gas (I)'].strain,'Grape Gas');
 for(const key of ['medBasePrice','cost','gramsConcentration']) assert.equal(result.templates['Runtz (H)'][key],'');

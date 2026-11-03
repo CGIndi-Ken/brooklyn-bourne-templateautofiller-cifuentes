@@ -45,5 +45,6 @@ h1 {font-size:27px;letter-spacing:-.7px;line-height:1.2;margin:0}h2 {font-size:1
 .card .completion-tools[open] > summary::after {content:"\2212"}
 .completion-fields {padding-top:12px}.completion-fields > button {width:100%;margin-top:10px}
 .completion-fields .completion-grid {gap:10px}.completion-fields .completion-tags > button {width:100%}
+.thc-list-tools {margin-top:12px}.thc-list-tools>label {display:block;margin-top:10px}.thc-list-tools textarea {width:100%;box-sizing:border-box;resize:vertical;margin-top:6px}.thc-list-tools ol {max-height:240px;overflow:auto;overflow-wrap:anywhere;padding-left:24px}.thc-list-tools li {margin:7px 0}.thc-list-tools [data-error=true] {color:var(--soft);font-weight:600}
 
 #quickNamesStatus {white-space:pre-line;max-height:150px;overflow:auto;overflow-wrap:anywhere}

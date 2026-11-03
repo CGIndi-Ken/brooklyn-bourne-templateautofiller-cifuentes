@@ -39,7 +39,7 @@ assert.deepEqual(result.conflicts,[],'Numeric/string zero has the same saved mea
 assert.equal(result.values.cost,'0');
 result=merge({...base,copyToLocation:true},{...base,copyToLocation:false},{...base,copyToLocation:true,medBasePrice:'26'});
 assert.deepEqual(result.conflicts,[]);
-assert.equal(result.values.copyToLocation,false);
+assert.equal(result.values.copyToLocation,true);
 assert.equal(result.values.medBasePrice,'26');
 
 const category={...base,category:'Flower (New Category)',regulatoryCategory:'Flower regulatory',externalCategory:'Flower external',categoryPresetUnlocked:true};

@@ -34,5 +34,6 @@ bin/
 *.iml
 *.zip
 /previews/
+/tmp/
 /Brooklyn-Bourne-Autofiller/
 /PROJECT_MEMORY.md

@@ -21,14 +21,17 @@ const sortKey = (def) => TAB_ORDER.indexOf(tabOf(def)) * 10 + ORDER[def.type];
 // What a field should be filled with for this template ("" = skip it)
 function valueFor(def, template) {
   if (def.fixed) return def.fixed;
-  if (def.copyOf && !def.alwaysCopy && !template.copyToLocation) return "";
+  if(def.key === "brand" && template.inferBrandFromTitle) return brandFromTitle(template.name);
+  const titlePair=template.inferCategoryFromTitle && categoryFromTitle(template.name);
+  if(def.key === "category") return canonicalCategoryName(titlePair?.category || template.category);
+  if(titlePair && Object.hasOwn(titlePair,def.copyOf || def.key)) return titlePair[def.copyOf || def.key];
   if (def.copyOf === "externalCategory" && !template.categoryPresetUnlocked) {
-    const preset = categoryPresetFor(template.category);
+    const preset = categoryPresetFor(template.category,template);
     if (preset) return preset.externalCategory || "";
   }
   if (def.copyOf) return template[def.copyOf] ?? "";
   if ((def.key === "regulatoryCategory" || def.key === "externalCategory") && !template.categoryPresetUnlocked) {
-    const preset = categoryPresetFor(template.category);
+    const preset = categoryPresetFor(template.category,template);
     if (preset) return preset[def.key] || "";
   }
   return template[def.key] ?? "";

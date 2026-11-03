@@ -43,7 +43,7 @@ async function main() {
     assert.equal((await values()).at(-1).cost,'');
     const popup=await ctx.newPage();popup.on('pageerror',e=>errors.push(e.message));
     await popup.goto(pageURL('popup.html'));await popup.waitForSelector('#f_category');
-    await popup.locator('#f_category').selectOption('Carts (New Categories)');
+    await popup.locator('#f_category').selectOption('Carts (New Category)');
     assert.equal(await popup.locator('#f_externalCategory').inputValue(),'Variety Pack');
     await popup.locator('#unlockCategoryPreset').check();
     await popup.locator('#f_regulatoryCategory').selectOption('Cannabis Flower Products');
@@ -86,7 +86,7 @@ async function main() {
     const filling=fixture.runFields([{key:'externalCategory',type:'select'}],{category:'Carts'});
     await Promise.resolve();assert.equal(calls.length,0);release();await filling;
     assert.deepEqual(calls,[['externalCategory','Tincture - Each']]);
-    assert.equal(fixture.valueFor({copyOf:'externalCategory'},{category:'Carts'}),'');
+    assert.equal(fixture.valueFor({copyOf:'externalCategory'},{category:'Carts'}),'Tincture - Each');
     assert.equal(fixture.valueFor({key:'externalCategory'},{category:'Carts',categoryPresetUnlocked:true,externalCategory:'Manual'}),'Manual');
     assert.deepEqual(errors,[]);
     console.log('Passed persistent normalized category pairings, selected-only overrides, cross-editor reuse, conflicts/failures, defaults/unlocks, export/import validation and startup-safe autofill.');

@@ -8,7 +8,7 @@ async function main() {
   const values = vm.createContext({});
   load(values, 'fields.js', 'engine.js');
   const copy = {copyOf:'externalCategory'};
-  assert.equal(values.valueFor(copy, {category:'Flower (New Category)'}), '', 'Location copies must respect their checkbox');
+  assert.equal(values.valueFor(copy, {category:'Flower (New Category)',copyToLocation:false}), 'Bud/Flower - Each', 'Location copies are always enabled');
   assert.equal(values.valueFor(copy, {category:'Flower (New Category)',copyToLocation:true}), 'Bud/Flower - Each');
   assert.equal(values.valueFor({copyOf:'name',alwaysCopy:true}, {name:'Title'}), 'Title');
   assert.equal(values.valueFor({key:'thc'}, {thc:0}), 0, 'Numeric zero is a valid field value');
@@ -51,6 +51,6 @@ async function main() {
   assert.equal(fills, 0, 'Do not fill stale fields when Details fails to open');
   assert.equal(result.problems.length, 1);
   assert.equal(result.filled, 0);
-  console.log('Passed content readiness, selected-tab mounting, missing-field failure, location copy opt-out, numeric zero, and redundant Quantity selection checks.');
+  console.log('Passed content readiness, selected-tab mounting, missing-field failure, mandatory location copies, numeric zero, and redundant Quantity selection checks.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

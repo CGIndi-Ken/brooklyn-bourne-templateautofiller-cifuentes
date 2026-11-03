@@ -6,6 +6,62 @@ The new Deluxe tier adds subtle static patterns and gradients to backgrounds, he
 
 Bulk editing controls are centralized in **Apply to selected**. Expand **THC, tags & pricing** there for fill-blanks, per-field Apply/Clear, additive tags, and loading unfinished templates. The large Bulk updates banner has been removed. In the popup, first open **Shared edits & add products** to reach these tools.
 
+## Brand from the title (0.29.0)
+
+New templates automatically use the text before the first `|` as Brand: `STIIIZY | Purple Haze | 1g AIO` fills **STIIIZY**. Spaces around the name are trimmed; spelling and capitalization are preserved. Names without a `|` do not infer a brand. This works while typing in the template maker, pasted bulk products and individual bulk entries, and during autofill for automatic templates.
+
+Editing or clearing Brand manually pauses automatic brand changes. **Brand from title** opts back in, including for older saved templates. Explicit directory/brand selections and manual shared brand settings are preserved. Automatic brands follow later title changes. Drafts and template JSON backups retain this setting. Vendor stays independent.
+
+Category label correction (0.28.1): use **Carts (New Category)**. The old plural label is normalized for saved templates, learned choices and autofill.
+
+## Paste THC values in order (0.28.0)
+
+In **Bulk editor → Apply to selected → THC, tags & pricing**, expand **Paste THC values in order**. Paste one number per line (or a spreadsheet row separated by tabs), choose % or mg above, and click **Preview THC values**. The first number goes to the first checked, shown product, continuing from top to bottom. Counts must match exactly; invalid numbers and empty interior lines are rejected before any edits. Percent values may include `%` and cannot exceed 100.
+
+**Fill blanks only** protects existing THC and its unit while still consuming that product's pasted position. Uncheck it to replace existing values. Preview shows the product and its old/new value or protected value. Changing the selection, order, filters, THC, unit or paste requires a new preview. **Apply THC list** updates THC and its unit; hidden and unchecked products remain untouched. Use **Undo bulk update** to reverse the operation, then **Save selected** or **Save all templates** when ready. The pasted list is kept in your workspace draft, but a preview must be regenerated after reopening.
+
+## Maintenance cleanup (0.27.1)
+
+Individual and bulk edits now share title-inference handling. Removed duplicate title-rule initialization, redundant template normalization, unused standalone picker CSS, and obsolete preview renders. Tests, finished SOP files, current SOP screenshots and capture/build scripts are retained. The extension still runs directly from its root source files without a build step.
+
+## Instant title autofill (0.27.0)
+
+New templates fill weight and the complete category pairing immediately from the final `|` section. These rules work in both the template maker and bulk entry. A `2pk` (or larger pack count) makes pre-rolls Preroll Packs without multiplying their stated weight.
+
+| Title ending | Category | Regulatory category | External category |
+| --- | --- | --- | --- |
+| `3.5g` or `3.5g infused flower` | Flower (New Category) | Cannabis Flower Products | Bud/Flower - Each |
+| `3.5g ground flower` | Ground flower (New Category) | Cannabis Flower Products | Bud/Flower - Each |
+| `1g pre-roll` | Prerolls (New Category) | Cannabis Flower Products | Raw Pre-Roll - Each |
+| `1g 2pk pre-rolls` | Preroll Packs (New Category) | Cannabis Flower Products | Raw Pre-Roll - Each |
+| `1g infused pre-roll` | Prerolls (New Category) | Cannabis Flower Products | Infused Pre-Roll - Each |
+| `1g 2pk infused pre-rolls` | Preroll Packs (New Category) | Cannabis Flower Products | Infused Pre-Roll - Each |
+| `1g AIO` | Disposable Vapes (New Category) | Oil for Vaporization | Vape Cartridge - Each |
+| `1g cart` | Carts (New Category) | Oil for Vaporization | Vape Cartridge - Each |
+| `100mg 10pk gummies` | Edibles (New Category) | Gel-based foods | Infused Edible - Each |
+| `100mg 10pk chocolate` | Edibles (New Category) | Solid chocolates | Infused Edible - Each |
+| `10mg beverage` | Drinks (New Category) | Beverages | Infused Edible - Each |
+
+Title markers fill both **Strain** and **Tags**: `(S)` = Sativa, `(H)` = Hybrid, `(I)` = Indica, `(S/H)` = Sativa dominant hybrid, `(I/H)` = Indica dominant hybrid. Conflicting markers leave the automatic strain blank. Changing a marker replaces its previous automatic tag while keeping unrelated tags. Editing Strain or Tags manually pauses that field's automation; use **Strain + tag from title** to opt back in. Existing templates retain manual settings. An explicit pasted Strain column takes priority over inferred strain type. Drafts and JSON transfers preserve these choices. The description prompt still uses the actual strain name, such as `Runtz (H)`.
+
+## Infused and uninfused pre roll pairings (0.26.0)
+
+Prerolls (New Category) and Preroll Packs (New Category) now remember separate infused and uninfused variants. Both use Cannabis Flower Products; infused uses Infused Pre-Roll - Each, and uninfused uses Raw Pre-Roll - Each. Select mixed products with their correct external categories and click **Remember category pairings from selected entries** to remember both together. Conflicting choices within the same variant still require review before anything is saved.
+
+Explicit infused/raw external values identify existing products. Otherwise, a recognized title designation identifies the variant. Generic pre-rolls, raw, uninfused and non-infused pre-rolls use Raw; infused pre-rolls use Infused. Explicit pack designations keep Preroll Packs rather than Prerolls. A product with no variant evidence is not assigned an arbitrary remembered variant. Manual unlocked pairings and explicit custom title rules remain authoritative. Backup imports merge both variants without removing a variant that was not included in the imported file.
+
+## Automatic defaults (0.25.0)
+
+Tax categories always fills **Cannabis**. Low stock / inventory threshold always fills **0** on both Details and Location details. Location copies are always enabled: nonblank price, cost, external category and external ID copy to Location details; blank source values are skipped. Existing templates with different values or copying disabled follow these same rules during autofill. The editors lock these settings, and normalized saves/imports/exports use the required values.
+
+## Category from the title (0.24.0)
+
+New products now recognize phrases in the final title section after a recognized weight. With no category designation, they default to Flower (New Category), Cannabis Flower Products, and Bud/Flower - Each. For example, `Dank | Cheese & Chong | 28g (H)` sets grams to 28 and uses that Flower pairing. Strain-type markers and pack counts alone are not category designations. An unknown category phrase is left for manual selection or a remembered rule; it does not trigger the Flower fallback. `STIIIZY | Purple Haze | 1g AIO` sets grams to 1 and uses Disposable Vapes (New Category), Oil for Vaporization, and Vape Cartridge - Each. `STIIIZY | Strawberry Mango | 1g infused pre-roll` uses Prerolls (New Category), Cannabis Flower Products, and Infused Pre-Roll - Each. Capitalization and hyphens do not affect matching. Brand and strain sections are ignored.
+
+This works in the popup, bulk creation and workspace. Existing templates keep their manual mode; use **From title** beside Category (under Details for a bulk entry) to opt in. Manually changing a category or its pairings stops automatic category changes for that entry. Removing a category phrase from an automatic entry switches it to Flower when a recognized weight remains; removing the weight or entering an unknown category clears the previous inferred categories. Weight detection remains independent.
+
+Expand **Remember title category rules** in the popup's category section or Bulk editor's Apply to selected. Enter a phrase and remember the current three categories; bulk selection must contain matching triples. For a different external category, unlock the category pairings first. Custom rules can be removed there, and travel with template JSON exports/imports. Rules apply when creating products, editing automatic titles, opting in, or autofilling automatic templates. They do not rewrite saved templates in the background. Infused pre-roll is a title-specific rule, so ordinary Prerolls keep their existing category defaults.
+
 ## Faster product entry (0.23.0)
 
 The popup and Bulk editor now share spreadsheet paste handling. Paste Name, optional Strain, and optional Description as tab-separated columns. A Name / Strain / Description header is optional. Quoted cells can contain tabs, line breaks and doubled quotes. The complete paste is validated before creating anything; invalid rows leave your input intact.
@@ -63,7 +119,7 @@ The main template editor suggests that vendor's brands. Select a vendor and chec
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
 
-You can also paste up to three tab-separated columns from a spreadsheet, with an optional header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost and base price start **blank** for new templates, including bulk creation, copies and new brand entries. Grams/concentration is inferred separately from each product name when a recognized weight is present. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings, and the location-copy checkbox. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
+You can also paste up to three tab-separated columns from a spreadsheet, with an optional header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost and base price start **blank** for new templates, including bulk creation, copies and new brand entries. Grams/concentration is inferred separately from each product name when a recognized weight is present. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
@@ -81,7 +137,7 @@ Each product also shows THC, THC unit, tags, cost and base price directly, so di
 
 A product category can remember its regulatory category and external category. Built-in pairings still apply until you remember a replacement. Category names match regardless of case and the `(New Category)` / `(New Categories)` suffix.
 
-In **Bulk editor**, select the products, apply their regulatory and external categories using **Apply to selected**, then click **Remember category pairings from selected entries**. Only checked, shown entries supply pairings. Each category must have one consistent pairing; conflicting selections are rejected. Applying regulatory or external categories creates a per-template override so your chosen value is kept.
+In **Bulk editor**, select the products, apply their regulatory and external categories using **Apply to selected**, then click **Remember category pairings from selected entries**. Only checked, shown entries supply pairings. Each category must have one consistent pairing, except Prerolls and Preroll Packs, which allow separate infused and raw pairings; conflicts within one variant are rejected. Applying regulatory or external categories creates a per-template override so your chosen value is kept.
 
 In the single-template editor, choose a category, unlock its presets to edit the pair, then click **Remember these category pairings**. Remembering saves the rule without changing saved product templates. New products and locked templates use the remembered rule automatically in the editors and during autofill. Unlocked templates keep their individual overrides. Pairings persist locally and are included in template exports/imports.
 

@@ -38,6 +38,23 @@ function planProductRows(text, existingNames = []) {
   return {created,skipped};
 }
 
+// Keep every value aligned with its product, including protected nonblank rows.
+function planThcList(text, products, unit="%", fillBlanks=true) {
+  if(!products.length) throw new Error("Select at least one shown product first.");
+  if(!["%","mg"].includes(unit)) throw new Error("Choose % or mg for THC.");
+  const source=String(text).replace(/^\uFEFF/,"").trim();
+  if(!source) throw new Error("Paste one THC value per product.");
+  const values=source.split(/\r\n?|\n|\t/).map((cell,index)=>{
+    let value=cell.trim();
+    if(unit === "%") value=value.replace(/\s*%$/,"");
+    if(!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value))) throw new Error(`Value ${index+1}: enter a non-negative THC number.`);
+    if(unit === "%" && Number(value)>100) throw new Error(`Value ${index+1}: THC percentage cannot exceed 100. Choose mg for amounts.`);
+    return value;
+  });
+  if(values.length !== products.length) throw new Error(`${values.length} THC values for ${products.length} selected, shown products. Paste exactly one value per product.`);
+  return products.map((product,index)=>({value:values[index],unit,keep:fillBlanks && String(product.thc ?? "").trim()!==""}));
+}
+
 function buildBulkTemplates(text, shared, existing) {
   const templates = { ...existing };
   const created = [];
@@ -45,7 +62,10 @@ function buildBulkTemplates(text, shared, existing) {
   const skipped = plan.skipped;
   for (const {name,strain,onlineDescription} of plan.created) {
     // These are product-specific and must not leak from the shared template.
-    const data = { ...shared, ...NEW_TEMPLATE_DEFAULTS, name, strain, onlineDescription, externalId: "", gramsConcentration:gramsFromTitle(name), inferGramsFromTitle:true };
+    const data = { ...shared, ...NEW_TEMPLATE_DEFAULTS, name, strain, onlineDescription, externalId: "", gramsConcentration:gramsFromTitle(name), inferGramsFromTitle:true, inferCategoryFromTitle:true };
+    data.inferStrainFromTitle=!strain;data.inferTagsFromTitle=true;
+    data.inferBrandFromTitle=shared.inferBrandFromTitle === true || !String(shared.brand || "").trim();
+    updateStrainFromTitle(data,shared.name);
     applyTemplatePreset(data);
     delete data.type;
     delete data.defaultUnit;

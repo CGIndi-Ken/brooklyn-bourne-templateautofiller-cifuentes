@@ -9,7 +9,31 @@ const STORED_DEFS = FIELD_DEFS.filter((d) => !d.fixed && !d.copyOf);
 let learned = {};
 let sections = []; // { keys, countEl }
 let storedControls = [];
-let gramsAuto=true;
+let gramsAuto=true, categoryAuto=true, previousCategoryName="";
+let strainAuto=true, tagsAuto=true, previousStrainName="";
+let brandAuto=true;
+function updateTitleBrand() {
+  if(!brandAuto) return;
+  const brand=brandFromTitle($("f_name").value);
+  if($("f_brand").value !== brand) {
+    setValue(DEFS.brand,brand);
+    document.dispatchEvent(new Event("templateFormLoaded"));
+  }
+}
+function updateTitleStrain() {
+  const values={name:$("f_name").value,strain:$("f_strain").value,tags:$("f_tags").value,inferStrainFromTitle:strainAuto,inferTagsFromTitle:tagsAuto};
+  updateStrainFromTitle(values,previousStrainName);
+  setValue(DEFS.strain,values.strain);setValue(DEFS.tags,values.tags);
+  previousStrainName=values.name;
+}
+function updateTitleCategory() {
+  const values={name:$("f_name").value,inferCategoryFromTitle:categoryAuto};
+  for(const key of ["category","regulatoryCategory","externalCategory"]) values[key]=$("f_"+key).value;
+  updateCategoryFromTitle(values,previousCategoryName);
+  if(categoryAuto) for(const key of ["category","regulatoryCategory","externalCategory"]) setValue(DEFS[key],values[key]);
+  previousCategoryName=values.name;
+  if($("useTitleCategory")) $("useTitleCategory").disabled=!categoryFromTitle(values.name);
+}
 
 async function getTemplates() {
   const { templates } = await chrome.storage.local.get("templates");
@@ -23,14 +47,16 @@ async function getLearned() {
 // Lists learned from the real Dutchie page win over the built-in starting lists
 const optionsFor = (def) => {
   const l = learned[def.key];
+  if(def.key === "category") return [...new Set([...(l || []),...(def.options || [])].map(canonicalCategoryName))];
   if (l && l.length && def.options) return [...new Set([...l, ...def.options])];
   return l && l.length ? l : def.options || null;
 };
 
 function applyCategoryDefaults(clearUnknown = false) {
+  if(categoryAuto && categoryFromTitle($("f_name")?.value)) {updateTitleCategory();return;}
   if ($("unlockCategoryPreset")?.checked) return;
   const category = $("f_category")?.value;
-  const preset = categoryPresetFor(category);
+  const preset = categoryPresetFor(category,{name:$("f_name")?.value,externalCategory:$("f_externalCategory")?.value});
   if (preset) {
     setValue(DEFS.regulatoryCategory, preset.regulatoryCategory);
     setValue(DEFS.externalCategory, preset.externalCategory);
@@ -61,7 +87,7 @@ function makeControl(def) {
   const frag = document.createDocumentFragment();
   let el;
 
-  if (def.type === "select" && (opts || def.fixed)) {
+  if (def.fixed || (def.type === "select" && opts)) {
     el = document.createElement("select");
     el.appendChild(new Option("(skip)", ""));
     (opts || []).forEach((o) => el.appendChild(new Option(o, o)));
@@ -150,6 +176,14 @@ function buildForm() {
       pair.appendChild(ctl);
       pairs[key] = pair;
       row.append(label, pair);
+      if(key === "brand") {
+        const button=document.createElement("button");button.type="button";button.id="useTitleBrand";button.className="weight-from-name";button.textContent="Brand from title";
+        button.addEventListener("click",()=>{brandAuto=true;updateTitleBrand();updateCounts();invalidateBulk();scheduleDraft();});row.append(button);
+      }
+      if(key === "strain") {
+        const button=document.createElement("button");button.type="button";button.id="useTitleStrain";button.className="weight-from-name";button.textContent="Strain + tag from title";
+        button.addEventListener("click",()=>{strainAuto=true;tagsAuto=true;updateTitleStrain();updateCounts();invalidateBulk();scheduleDraft();});row.append(button);
+      }
       if (key === "gramsConcentration") {
         const fromName=document.createElement("button");fromName.type="button";fromName.id="useTitleWeight";
         fromName.className="weight-from-name";fromName.textContent="From name";fromName.setAttribute("aria-label","Use total weight from name");
@@ -205,7 +239,10 @@ function buildForm() {
         });
         const help=document.createElement("details");help.className="help";
         const summary=document.createElement("summary");summary.textContent="About category pairings";help.append(summary,hint);
-        presetRow.append(toggleLabel, remember, help);
+        const fromTitle=document.createElement("button");fromTitle.type="button";fromTitle.id="useTitleCategory";fromTitle.textContent="From title";fromTitle.disabled=true;
+        fromTitle.addEventListener("click",()=>{categoryAuto=true;updateTitleCategory();updateCounts();invalidateBulk();scheduleDraft();});
+        presetRow.append(fromTitle,toggleLabel, remember, help);
+        createTitleRuleEditor(presetRow,()=>[readTemplateForm()],toast);
         body.appendChild(presetRow);
       }
     });
@@ -231,6 +268,7 @@ function updateCounts() {
 }
 
 function setValue(def, value) {
+  if(def.key === "category") value=canonicalCategoryName(value);
   const el = $(`f_${def.key}`);
   if (!el) return;
   if (el.tagName === "SELECT" && value && ![...el.options].some((o) => o.value === value)) {
@@ -245,11 +283,13 @@ function loadSelected(templates) {
   if (!t) return;
   $("templateName").value = name;
   STORED_DEFS.forEach((d) => setValue(d, t[d.key]));
-  gramsAuto=t.inferGramsFromTitle === true;
+  gramsAuto=t.inferGramsFromTitle === true;categoryAuto=t.inferCategoryFromTitle === true;previousCategoryName=t.name || "";
+  strainAuto=t.inferStrainFromTitle === true;tagsAuto=t.inferTagsFromTitle === true;previousStrainName=t.name || "";
+  brandAuto=t.inferBrandFromTitle === true;updateTitleBrand();
   updateGramsFromName();
-  $("copyLoc").checked = !!t.copyToLocation;
+  $("copyLoc").checked = true;
   setCategoryPresetUnlocked(!!t.categoryPresetUnlocked);
-  applyCategoryDefaults();
+  applyCategoryDefaults();updateTitleCategory();
   updateCounts();
   resetDescriptionPrompt();
   document.dispatchEvent(new Event("templateFormLoaded"));
@@ -281,7 +321,7 @@ function flushDraft() {
 }
 function templateDraftState() {
   const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
-  return { values, inferGramsFromTitle:gramsAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+  return { values, inferBrandFromTitle:brandAuto, inferStrainFromTitle:strainAuto, inferTagsFromTitle:tagsAuto, inferGramsFromTitle:gramsAuto, inferCategoryFromTitle:categoryAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
 }
 async function saveDraft() {
   clearTimeout(draftTimer);
@@ -323,10 +363,11 @@ async function copyDescriptionPrompt() {
 function clearTemplateForm() {
   clearTimeout(draftTimer);
   draftDirty = false;
-  gramsAuto=true;
+  gramsAuto=true;categoryAuto=true;previousCategoryName="";strainAuto=true;tagsAuto=true;previousStrainName="";
+  brandAuto=true;
   STORED_DEFS.forEach((d) => setValue(d, NEW_TEMPLATE_DEFAULTS[d.key] ?? ""));
-  updateGramsFromName();
-  $("copyLoc").checked = false;
+  updateGramsFromName();updateTitleCategory();
+  $("copyLoc").checked = true;
   setCategoryPresetUnlocked(false);
   $("templateName").value = "";
   $("templateSelect").value = "";
@@ -367,7 +408,11 @@ function onFormEdit(event) {
   const selection = event.target.matches('select, input[type="checkbox"]');
   if ((event.type === "input" && selection) || (event.type === "change" && !selection)) return;
   if (event.target.id === "f_gramsConcentration") gramsAuto=false;
-  if (event.target.id === "f_name") updateGramsFromName(true);
+  if (["f_category","f_regulatoryCategory","f_externalCategory","unlockCategoryPreset"].includes(event.target.id)) categoryAuto=false;
+  if(event.target.id === "f_strain") strainAuto=false;
+  if(event.target.id === "f_tags") tagsAuto=false;
+  if(event.target.id === "f_brand") brandAuto=false;
+  if (event.target.id === "f_name") {updateGramsFromName(true);updateTitleCategory();updateTitleStrain();updateTitleBrand();}
   if (event.target.id === "f_category") applyCategoryDefaults(true);
   if (event.target.id === "unlockCategoryPreset") {
     setCategoryPresetUnlocked(event.target.checked);
@@ -391,7 +436,7 @@ $("copyBtn").addEventListener("click", () => {
   const name = $("templateName").value.trim();
   if (!name) return toast("Nothing to copy yet.");
   Object.entries(NEW_TEMPLATE_DEFAULTS).forEach(([key,value]) => setValue(DEFS[key],value));
-  gramsAuto=true;updateGramsFromName(true);
+  gramsAuto=true;categoryAuto=true;updateGramsFromName(true);updateTitleCategory();
   updateCounts();
   invalidateBulk();
   $("templateName").value = `${name} copy`;
@@ -407,9 +452,13 @@ function readTemplateForm() {
     data[def.key] = el.value.trim();
   });
   data.categoryPresetUnlocked = $("unlockCategoryPreset").checked;
-  applyTemplatePreset(data);
-  data.copyToLocation = $("copyLoc").checked;
+  data.copyToLocation = true;
+  data.inferStrainFromTitle=strainAuto;
+  data.inferBrandFromTitle=brandAuto;
+  data.inferTagsFromTitle=tagsAuto;
   data.inferGramsFromTitle=gramsAuto;
+  data.inferCategoryFromTitle=categoryAuto;
+  applyTemplatePreset(data);
   if (data.onlineDescription.length > 2500) throw new Error("Description exceeds 2500 characters.");
   return data;
 }
@@ -490,8 +539,9 @@ $("exportBtn").addEventListener("click", async () => {
     const templates = await getTemplates();
     const {brandDirectory = []} = await chrome.storage.local.get("brandDirectory");
     const {categoryPairings = {}} = await chrome.storage.local.get("categoryPairings");
-    const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,removeRetiredFields({...template})]));
-    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings }, null, 2)], { type: "application/json" });
+    const {titleCategoryRules = {}} = await chrome.storage.local.get("titleCategoryRules");
+    const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,applyRequiredDefaults(removeRetiredFields({...template}))]));
+    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings, titleCategoryRules }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -514,9 +564,11 @@ $("importFile").addEventListener("change", async () => {
     if (!isObject(backup) || backup.format !== "brooklyn-bourne-templates" || backup.version !== 1 || !isObject(backup.templates)) {
       throw new Error("Choose a template export from this extension.");
     }
+    let importedTitleRules;
+    if(backup.titleCategoryRules !== undefined) importedTitleRules={...validateTitleRules((await chrome.storage.local.get("titleCategoryRules")).titleCategoryRules || {}),...validateTitleRules(backup.titleCategoryRules)};
     let importedPairings;
     if (backup.categoryPairings !== undefined) {
-      importedPairings={...validateCategoryPairings((await chrome.storage.local.get("categoryPairings")).categoryPairings || {}),...validateCategoryPairings(backup.categoryPairings)};
+      importedPairings=mergeCategoryPairings((await chrome.storage.local.get("categoryPairings")).categoryPairings || {},backup.categoryPairings);
     }
     // Validate every entry before saving anything; accept only known editable fields.
     const entries = Object.entries(backup.templates).map(([name, template]) => {
@@ -531,12 +583,20 @@ $("importFile").addEventListener("change", async () => {
       if (template.copyToLocation !== undefined && typeof template.copyToLocation !== "boolean") throw new Error(`Invalid location setting in "${name}".`);
       if (template.categoryPresetUnlocked !== undefined && typeof template.categoryPresetUnlocked !== "boolean") throw new Error(`Invalid category preset setting in "${name}".`);
       if (template.inferGramsFromTitle !== undefined && typeof template.inferGramsFromTitle !== "boolean") throw new Error(`Invalid weight setting in "${name}".`);
+      if(template.inferCategoryFromTitle !== undefined && typeof template.inferCategoryFromTitle!=="boolean") throw new Error(`Invalid title category setting in "${name}".`);
+      for(const flag of ["inferStrainFromTitle","inferTagsFromTitle","inferBrandFromTitle"]) {
+        if(template[flag] !== undefined && typeof template[flag] !== "boolean") throw new Error(`Invalid title type setting in "${name}".`);
+        clean[flag]=template[flag] === true;
+      }
+      clean.inferCategoryFromTitle=template.inferCategoryFromTitle === true;
       clean.inferGramsFromTitle=template.inferGramsFromTitle === true;
-      clean.copyToLocation = !!template.copyToLocation;
+      clean.copyToLocation = true;
       clean.categoryPresetUnlocked = template.categoryPresetUnlocked === true;
       applyTemplatePreset(clean);
+      // Preserve the exported triple until the imported rules are installed.
+      if(clean.inferCategoryFromTitle) for(const key of ["category","regulatoryCategory","externalCategory"]) clean[key]=template[key] || "";
       const key=categoryKey(clean.category);
-      if (!clean.categoryPresetUnlocked && importedPairings && Object.hasOwn(importedPairings,key)) Object.assign(clean,importedPairings[key]);
+      if (!clean.inferCategoryFromTitle && !clean.categoryPresetUnlocked && importedPairings && Object.hasOwn(importedPairings,key)) Object.assign(clean,categoryPresetFor(clean.category,clean,importedPairings));
       return [name.trim(), clean];
     });
     const templates = await getTemplates();
@@ -557,7 +617,7 @@ $("importFile").addEventListener("change", async () => {
       while (Object.hasOwn(templates, target)) target = `${name} (imported ${count++})`;
       Object.defineProperty(templates, target, { value: template, enumerable: true, writable: true, configurable: true });
     }
-    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}), ...(importedPairings ? {categoryPairings:importedPairings} : {}) });
+    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}), ...(importedPairings ? {categoryPairings:importedPairings} : {}), ...(importedTitleRules ? {titleCategoryRules:importedTitleRules} : {}) });
     await refresh();
     $("transferStatus").textContent = `Imported ${entries.length} templates. Existing templates were preserved.`;
   } catch (e) {
@@ -579,17 +639,21 @@ $("importFile").addEventListener("change", async () => {
   const { templateDraft } = await chrome.storage.local.get("templateDraft");
   if (templateDraft && templateDraft.values) {
     STORED_DEFS.forEach((d) => setValue(d, templateDraft.values[d.key]));
-    gramsAuto=templateDraft.inferGramsFromTitle === true;
+    gramsAuto=templateDraft.inferGramsFromTitle === true;categoryAuto=templateDraft.inferCategoryFromTitle === true;previousCategoryName=templateDraft.values.name || "";
+    strainAuto=templateDraft.inferStrainFromTitle === true;tagsAuto=templateDraft.inferTagsFromTitle === true;previousStrainName=templateDraft.values.name || "";
+    brandAuto=templateDraft.inferBrandFromTitle === true;
     $("templateName").value = templateDraft.name || "";
     $("templateSelect").value = templateDraft.selected || "";
-    $("copyLoc").checked = !!templateDraft.copyToLocation;
+    $("copyLoc").checked = true;
     setCategoryPresetUnlocked(!!templateDraft.categoryPresetUnlocked);
     applyCategoryDefaults();
     $("bulkNames").value = templateDraft.bulkNames || "";
     updateCounts();
   }
-  updateGramsFromName();
+  updateGramsFromName();updateTitleCategory();updateTitleBrand();
   templatePicker.sync();
   templateEditorInitialized = true;
   document.dispatchEvent(new Event("templateEditorReady"));
 })();
+
+document.addEventListener("titleCategoryRulesChanged",()=>{if($("useTitleCategory")) $("useTitleCategory").disabled=!categoryFromTitle($("f_name").value);});

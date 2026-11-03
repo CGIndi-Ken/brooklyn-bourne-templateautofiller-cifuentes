@@ -101,7 +101,7 @@ async function main() {
     assert.deepEqual(await tags(unchecked),[]);
     // Completion settings, unsaved row edits, selection and filtering survive reload.
     await page.evaluate(()=>persistDraft());
-    assert.deepEqual(storage[draftKey].completion,{thc:'25',thcUnit:'%',cost:'10',medBasePrice:'30',tags:'Medical, Relaxed',fillBlanks:true});
+    assert.deepEqual(storage[draftKey].completion,{thc:'25',thcList:'',thcUnit:'%',cost:'10',medBasePrice:'30',tags:'Medical, Relaxed',fillBlanks:true});
     await page.reload();
     await page.waitForFunction(()=>document.querySelectorAll('.entry-card').length===4);
     await page.locator('#bulkCompletion > summary').click();

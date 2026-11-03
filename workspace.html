@@ -23,7 +23,7 @@
             <label for="applyField">Field</label><select id="applyField"></select>
             <label for="applyValue" id="applyValueLabel">Value</label><div id="applyTagsValue" hidden></div><input id="applyValue" placeholder="Value for selected entries" list="applyChoices"><datalist id="applyChoices"></datalist>
             <label class="check"><input id="clearValue" type="checkbox">Clear this field instead</label>
-            <button id="applySelected">Apply to selected entries</button><button id="rememberCategoryPairs">Remember category pairings from selected entries</button><details class="help"><summary>Category pairings</summary><p>Regulatory and external-category edits override presets for checked, shown entries. Remember those pairings to reuse them for matching categories.</p></details>
+            <button id="applySelected">Apply to selected entries</button><button id="rememberCategoryPairs">Remember category pairings from selected entries</button><details class="help"><summary>Category pairings</summary><p>Regulatory and external-category edits override presets for checked, shown entries. Remember those pairings to reuse them for matching categories. Prerolls and Preroll Packs remember infused and raw external categories separately, so both can be selected together.</p></details>
             <details class="completion-tools" id="bulkCompletion">
               <summary>THC, tags &amp; pricing</summary>
               <div class="completion-fields">
@@ -36,6 +36,13 @@
                   <div class="completion-value"><label for="bulkCost">Cost ($)<input id="bulkCost" type="number" min="0" step="any" placeholder="Leave unchanged"></label><div class="field-actions"><button id="applyBulkCost" data-completion-action aria-label="Apply cost only">Apply</button><button id="clearBulkCost" data-completion-action aria-label="Clear cost">Clear</button></div></div>
                   <div class="completion-value"><label for="bulkPrice">Price ($)<input id="bulkPrice" type="number" min="0" step="any" placeholder="Leave unchanged"></label><div class="field-actions"><button id="applyBulkPrice" data-completion-action aria-label="Apply price only">Apply</button><button id="clearBulkPrice" data-completion-action aria-label="Clear price">Clear</button></div></div>
                 </div>
+                <details class="thc-list-tools"><summary>Paste THC values in order</summary>
+                  <label for="thcList">One THC value per selected, shown product</label>
+                  <textarea id="thcList" rows="5" placeholder="86.96&#10;78.53&#10;84.85" aria-describedby="thcListHelp thcListStatus"></textarea>
+                  <p id="thcListHelp" class="sub">Top to bottom, in product display order. Uses the THC unit and Fill blanks only settings above. Existing values keep their place when protected.</p>
+                  <div class="field-actions"><button id="previewThcList">Preview THC values</button><button id="applyThcList" disabled>Apply THC list</button></div>
+                  <p id="thcListStatus" class="sub" role="status"></p><ol id="thcListPreview" hidden></ol>
+                </details>
                 <div class="completion-tags"><span>Tags</span><div id="bulkTags"></div><button id="applyBulkTags" data-completion-action>Add tags only</button></div>
 
                 <button id="applyCompletion" data-completion-action class="gold-button">Apply all entered details</button>

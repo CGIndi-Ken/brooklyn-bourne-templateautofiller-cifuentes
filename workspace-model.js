@@ -1,7 +1,7 @@
 // Retired duplicate vendor; keep existing template values but omit it from choices.
 const isSelectableVendor = (vendor) => String(vendor ?? "").trim().toLowerCase() !== "nys distribution";
 const WORKSPACE_FIELDS = FIELD_DEFS.filter((def) => !def.fixed && !def.copyOf);
-const WORKSPACE_FLAGS = ["copyToLocation", "categoryPresetUnlocked", "inferGramsFromTitle"];
+const WORKSPACE_FLAGS = ["categoryPresetUnlocked", "inferGramsFromTitle", "inferCategoryFromTitle", "inferStrainFromTitle", "inferTagsFromTitle", "inferBrandFromTitle"];
 
 function productValues(template = {}) {
   const values = { ...template };
@@ -14,7 +14,28 @@ function newProduct(shared = {}, overrides = {}) {
   const values={ ...shared, ...NEW_TEMPLATE_DEFAULTS, name: "", strain: "", onlineDescription: "", externalId: "", ...overrides };
   values.inferGramsFromTitle=!Object.hasOwn(overrides,"gramsConcentration");
   if (values.inferGramsFromTitle) values.gramsConcentration=gramsFromTitle(values.name);
+  values.inferCategoryFromTitle=!Object.hasOwn(overrides,"category");
+  values.inferStrainFromTitle=!String(overrides.strain || "").trim();
+  values.inferTagsFromTitle=!Object.hasOwn(overrides,"tags");
+  const manualBrand=String(overrides.brand ?? (shared.inferBrandFromTitle ? "" : shared.brand) ?? "").trim();
+  values.inferBrandFromTitle=overrides.inferBrandFromTitle === undefined ? !manualBrand : overrides.inferBrandFromTitle === true;
+  updateStrainFromTitle(values,shared.name);
   return productValues(values);
+}
+
+// Individual and bulk edits share the same rules for stopping title inference.
+function editProductField(values, key, value) {
+  const oldName=values.name;
+  values[key]=value;
+  const manualFlags={gramsConcentration:"inferGramsFromTitle",strain:"inferStrainFromTitle",tags:"inferTagsFromTitle",brand:"inferBrandFromTitle"};
+  if(Object.hasOwn(manualFlags,key)) values[manualFlags[key]]=false;
+  if(["category","regulatoryCategory","externalCategory","categoryPresetUnlocked"].includes(key)) values.inferCategoryFromTitle=false;
+  if(key === "name") {
+    if(values.inferGramsFromTitle) values.gramsConcentration=gramsFromTitle(value);
+    updateCategoryFromTitle(values,oldName);
+    updateStrainFromTitle(values,oldName);
+    updateBrandFromTitle(values);
+  }
 }
 
 function productDiff(values, baseline = {}) {
@@ -46,7 +67,7 @@ function mergeProductChanges(base = {}, local = {}, latest = {}) {
       if (value(local,key) !== value(latest,key)) conflicts.add(key);
     }
     removeRetiredFields(values);
-    return {values,conflicts:[...conflicts]};
+    return {values:applyRequiredDefaults(values),conflicts:[...conflicts]};
   }
   for (const key of fields) {
     const before=value(base,key), ours=value(local,key), saved=value(latest,key);
@@ -59,10 +80,13 @@ function mergeProductChanges(base = {}, local = {}, latest = {}) {
       if (value(local,key) !== value(latest,key)) conflicts.add(key);
     }
   }
-  const categoryFields=["category","regulatoryCategory","externalCategory","categoryPresetUnlocked"];
+  const categoryFields=["category","regulatoryCategory","externalCategory","categoryPresetUnlocked","inferCategoryFromTitle"];
+  if(local.inferCategoryFromTitle || latest.inferCategoryFromTitle) categoryFields.push("name", "gramsConcentration", "inferGramsFromTitle");
   if (changed(local,categoryFields) && changed(latest,categoryFields) &&
       (value(local,"category") !== value(latest,"category") ||
-       value(local,"categoryPresetUnlocked") !== value(latest,"categoryPresetUnlocked"))) {
+       value(local,"categoryPresetUnlocked") !== value(latest,"categoryPresetUnlocked") ||
+       value(local,"inferCategoryFromTitle") !== value(latest,"inferCategoryFromTitle") ||
+       ((local.inferCategoryFromTitle || latest.inferCategoryFromTitle) && value(local,"name") !== value(latest,"name")))) {
     keepGroupTogether(categoryFields);
   }
   const weightFields=["name","gramsConcentration","inferGramsFromTitle"];
@@ -71,10 +95,19 @@ function mergeProductChanges(base = {}, local = {}, latest = {}) {
        (value(local,"inferGramsFromTitle") !== value(latest,"inferGramsFromTitle") && value(local,"gramsConcentration") !== value(latest,"gramsConcentration")))) {
     // Automatic grams belong to their name. A manual-mode change also owns
     // that side's grams, even when the user typed the same numeric value.
-    keepGroupTogether(weightFields);
+    keepGroupTogether((local.inferCategoryFromTitle || latest.inferCategoryFromTitle) ? [...new Set([...weightFields,...categoryFields])] : weightFields);
+  }
+  const strainFields=["name","strain","tags","inferStrainFromTitle","inferTagsFromTitle"];
+  if((local.inferStrainFromTitle || latest.inferStrainFromTitle || local.inferTagsFromTitle || latest.inferTagsFromTitle) &&
+      changed(local,strainFields) && changed(latest,strainFields) && strainFields.some(key=>value(local,key)!==value(latest,key))) {
+    keepGroupTogether([...new Set([...strainFields,...((local.inferCategoryFromTitle || latest.inferCategoryFromTitle) ? categoryFields : []),...((local.inferGramsFromTitle || latest.inferGramsFromTitle) ? weightFields : [])])]);
+  }
+  const brandFields=["name","brand","inferBrandFromTitle"];
+  if((local.inferBrandFromTitle || latest.inferBrandFromTitle) && changed(local,brandFields) && changed(latest,brandFields) && brandFields.some(key=>value(local,key)!==value(latest,key))) {
+    keepGroupTogether([...new Set([...brandFields,...((local.inferCategoryFromTitle || latest.inferCategoryFromTitle) ? categoryFields : []),...((local.inferGramsFromTitle || latest.inferGramsFromTitle) ? weightFields : []),...((local.inferStrainFromTitle || latest.inferStrainFromTitle || local.inferTagsFromTitle || latest.inferTagsFromTitle) ? strainFields : [])])]);
   }
   removeRetiredFields(values);
-  return {values,conflicts:[...conflicts]};
+  return {values:applyRequiredDefaults(values),conflicts:[...conflicts]};
 }
 
 function mergeVendor(directory, vendor, brands) {
