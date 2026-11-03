@@ -34,8 +34,8 @@ async function main(){
     assert.equal(await page.evaluate(()=>[...rows.values()][2].dirty),true,'Unchecked changes remain unsaved');
     await page.evaluate(()=>chrome.storage.local.set({theme:'forest-mint-deluxe'}));
     await page.reload();await page.waitForFunction(()=>initialized);
-    assert.equal(await page.locator('html').getAttribute('data-autofill-theme'),'forest-mint','Old Deluxe choice migrates to Standard');
-    assert.equal(await page.locator('html').getAttribute('data-autofill-finish'),'standard');
+    assert.equal(await page.locator('html').getAttribute('data-autofill-theme'),'forest-mint-deluxe-v2','Old choice migrates to Patterned');
+    assert.equal(await page.locator('html').getAttribute('data-autofill-finish'),'patterned');
     assert.deepEqual(errors,[]);
     console.log('Passed scoped saves, unfinished/unchecked protection, draft recovery, all-save validation and saved-theme migration.');
   }finally{await browser.close();}

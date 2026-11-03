@@ -58,9 +58,13 @@ function createTemplatePicker(select, root = document) {
     for(const entry of entries)expanded.add(entry.group.toLowerCase());render();
   });
   panel.addEventListener('keydown',event=>{
+    // Shadow DOM retargets these events to the host <div> on the page. Site
+    // hotkeys can otherwise treat typing here as a page command and cancel it.
+    event.stopPropagation();
     if(event.key==='Escape'){event.preventDefault();close(true);}
     if(event.key==='ArrowDown' && event.target===search){event.preventDefault();results.querySelector('summary')?.focus();}
   });
+  for(const type of ['keyup','keypress','beforeinput','input','change']) panel.addEventListener(type,event=>event.stopPropagation());
   document.addEventListener('pointerdown',event=>{if(!event.composedPath().includes(panel) && !event.composedPath().includes(toggle))close();});
   document.addEventListener('focusin',event=>{if(!event.composedPath().includes(panel) && !event.composedPath().includes(toggle))close();});
   select.addEventListener('change',sync);

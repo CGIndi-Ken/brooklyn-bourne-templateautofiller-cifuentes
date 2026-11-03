@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>Brooklyn Bourne Autofiller</title>
+  <link rel="stylesheet" href="strain-directory.css">
 </head>
 <body class="app-surface">
   <div class="head"><span class="brand">Brooklyn Bourne</span><span class="brand-sub">Autofiller</span></div>
   <div class="stripe"></div>
-<nav class="popup-view-tabs" aria-label="Template workspace"><button data-popup-view="template" aria-pressed="true">Templates</button><button data-popup-view="bulk" aria-pressed="false">Bulk editor</button><button data-popup-view="directory" aria-pressed="false">Brand directory</button></nav>
+<nav class="popup-view-tabs" aria-label="Template workspace"><button data-popup-view="template" aria-pressed="true">Templates</button><button data-popup-view="bulk" aria-pressed="false">Bulk editor</button><button data-popup-view="directory" aria-pressed="false">Brand directory</button><button data-popup-view="strains" aria-pressed="false">Strain directory</button></nav>
 <section id="templateView">
 
   <div class="bar">
@@ -78,9 +79,11 @@
 </section>
 <section id="bulkView" hidden><iframe id="bulkWorkspace" title="Bulk template editor"></iframe></section>
 <section id="directoryView" hidden><iframe id="directoryWorkspace" title="Brand and vendor directory"></iframe></section>
+<section id="strainsView" hidden><iframe id="strainsWorkspace" title="Strain directory"></iframe></section>
   <script src="theme.js"></script>
   <script src="fields.js"></script><script src="category-pairings.js"></script>
   <script src="description.js"></script>
+  <script src="strain-directory.js"></script><script src="strain-directory-ui.js"></script>
   <script src="bulk.js"></script>
   <script src="workspace-model.js"></script>
   <script src="template-picker-style.js"></script>

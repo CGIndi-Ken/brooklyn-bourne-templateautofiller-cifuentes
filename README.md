@@ -1,10 +1,20 @@
 # Brooklyn Bourne Autofiller
 
-The **Theme** menu offers four Standard themes and four Deluxe themes in Black and gold, Black and yellow, Grey and maroon, and Forest and mint. The previous Deluxe designs are now Standard; the original flat designs have been removed. Saved theme choices automatically use their matching Standard palette. Black and gold remains the default.
+The **Theme** menu offers ten **Patterned** palettes and ten matching **Effects** variants. Solid themes have been removed; saved Solid choices migrate to the matching Patterned palette. Black and gold Patterned is the default. Effects add small edge highlights, focus glow and a short hover lift. Reduced motion disables the lift and transitions.
 
-The new Deluxe tier adds subtle static patterns and gradients to backgrounds, headers and section headings. Product fields stay solid for readability. All themes synchronize across the popup, bulk editor, directory and on-page Autofiller, with no downloaded assets or continuous animation.
+Patterned backgrounds use subtle static textures and gradients, with solid product fields for readability. Theme choices synchronize across the popup, bulk editor, directories and on-page Autofiller. There are no downloaded assets or continuous animations, and no premium tier labels.
 
 Bulk editing controls are centralized in **Apply to selected**. Expand **THC, tags & pricing** there for fill-blanks, per-field Apply/Clear, additive tags, and loading unfinished templates. The large Bulk updates banner has been removed. In the popup, first open **Shared edits & add products** to reach these tools.
+
+## Strain directory and search (0.31.0)
+
+Open **Strain directory** from the template maker or workspace. On first load, existing saved templates supply strain names, types and descriptions. Duplicate names/types are combined, curated text is kept, and conflicting descriptions are left for manual review. Actual strain names come from product titles, not generic Strain field values such as Hybrid. The directory is stored locally alongside templates.
+
+Use **+ New strain** and **Save strain** to maintain entries; search by name or type. **Collect descriptions from saved templates** adds later saved descriptions without overwriting existing text. Explicit deletion stays deleted until you collect again. Changing a saved directory entry does not rewrite existing templates.
+
+In each editor's Online description section, **Use saved strain description** fills a matching saved description and **Remember strain description** adds the current paragraph to the directory. Matching uses strain name and type; ambiguous or incompatible variants are not guessed. Reusing a description is an explicit action. In Bulk editor, **Fill blank descriptions from strain directory** affects checked, shown products only, keeps existing descriptions and supports **Undo bulk update**. Review and save templates to persist product changes. The directory travels with template JSON backups; importing keeps existing curated descriptions.
+
+Autofiller search now isolates typing events from the host page's keyboard shortcuts. A native typing regression covers this interaction, in addition to existing search/filter checks.
 
 ## Brand from the title (0.29.0)
 

@@ -23,6 +23,7 @@ const clone = (value) => structuredClone(value);
 const COMPLETION_FIELDS = ["thc", "tags", "cost", "medBasePrice"];
 const ENTRY_FILTERS = new Set(["all", "unsaved", "unfinished", "required", ...COMPLETION_FIELDS, "onlineDescription"]);
 let lastBulkEdit = null;
+let strainEditorMounted=false;
 let thcListPreview = null;
 function updateUndoButton() {
   $w("undoBulk").disabled=saving || !lastBulkEdit;
@@ -183,12 +184,29 @@ for (const [id,field] of [["clearBulkThc","thc"],["clearBulkThcUnit","thcUnit"],
 function showView(view) {
   $w("productsView").hidden = view !== "products";
   $w("directoryView").hidden = view !== "directory";
+  $w("strainsView").hidden = view !== "strains";
+  if(view === "strains" && !strainEditorMounted) {createStrainDirectoryEditor($w("strainDirectoryRoot"));strainEditorMounted=true;}
   $w("saveProducts").hidden = view !== "products";
   $w("undoBulk").hidden = view !== "products";
   $w("saveSelected").hidden = view !== "products";
   document.querySelectorAll("[data-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.view === view)));
 }
 document.querySelector(".workspace-nav").addEventListener("click", (event) => { if (event.target.dataset.view) showView(event.target.dataset.view); });
+$w("fillDirectoryDescriptions").addEventListener("click",async()=>{
+  if(saving)return;
+  const button=$w("fillDirectoryDescriptions");button.disabled=true;
+  try {
+    const directory=await loadStrainDirectory();if(saving)return;
+    const targets=[...rows.values()].filter(row=>row.selected && !row.element.hidden),before=captureBulkEdit();let unmatched=0,kept=0;
+    for(const row of targets) {
+      if(row.values.onlineDescription.trim()){kept++;continue;}
+      const match=findStrainDescription(row.values,directory);if(!match){unmatched++;continue;}
+      row.values.onlineDescription=match.description;refreshValues(row);if(row.tab === "changes")renderPanel(row);
+    }
+    const changed=rememberBulkEdit(before,"using saved strain descriptions");updateMetrics();scheduleSave();
+    setWorkspaceStatus(`${changed} descriptions filled; ${kept} existing descriptions kept; ${unmatched} without a unique match. Review, then save templates.`);
+  }catch(error){setWorkspaceStatus(error.message,true);}finally{button.disabled=false;}
+});
 $w("toggleTools").addEventListener("click",()=>{const open=document.body.classList.toggle("tools-open");$w("toggleTools").setAttribute("aria-expanded",String(open));});
 
 function serializeWorkspace() { return {shared, completion:completionDraft(), rows:[...rows.values()].map(({id,key,values,baseline,stored,selected,tab,collapsed}) => ({id,key,values,baseline,stored,selected,tab,collapsed})), quickNames:$w("quickNames").value, search:$w("entrySearch").value, filter:$w("entryFilter").value}; }
@@ -359,6 +377,7 @@ function renderPanel(row) {
     const copy = node("button", "Copy strain name + type"); copy.dataset.action = "copy";
     panel.append(copy, node("p", "Paste the reviewed description.", "sub"), fieldControl(FIELD_MAP.onlineDescription,row.values));
     panel.append(node("div", `${row.values.onlineDescription.length}/2500 characters`, "description-count sub"));
+    createStrainDescriptionControls(panel,()=>({...row.values}),description=>{row.values.onlineDescription=description;refreshValues(row);updateMetrics();scheduleSave();},setWorkspaceStatus);
   } else if (row.tab === "changes") {
     panel.append(node("p", "Compared with starting values. Blank fields are skipped during autofill.", "sub"));
     const table = node("table", "", "diff-table"); const head = table.createTHead().insertRow();

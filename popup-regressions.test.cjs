@@ -37,7 +37,7 @@ async function main() {
       window.secondWrite = saveDraft();
       window.resetDraft = clearTemplateForm();
     });
-    assert.equal(await page.evaluate(() => writeStarts.length), 1, 'Draft writes must wait for earlier writes');
+    assert.equal(await page.evaluate(() => writeStarts.filter(keys=>keys.includes('templateDraft')).length), 1, 'Draft writes must wait for earlier writes');
     await page.evaluate(async () => {releaseWrite(); await Promise.all([firstWrite,secondWrite,resetDraft]);});
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.store).templateDraft), undefined, 'New must not resurrect a pending draft');
     await page.evaluate(async () => {document.getElementById('f_name').value='After reset'; await saveDraft();});

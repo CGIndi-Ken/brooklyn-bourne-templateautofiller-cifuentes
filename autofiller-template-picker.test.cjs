@@ -24,6 +24,21 @@ async function main(){
     await toggle.click();assert.equal(await panel.isVisible(),true);
     assert.equal(await box.locator('.template-group').count(),2);
     assert.equal(await box.locator('.template-choice').count(),0);
+    // Page hotkeys see the Shadow DOM host as the focused DIV rather than the
+    // inner search input. Exercise native typing, which fill() bypasses.
+    await page.evaluate(()=>{
+      window.pageTypingEvents=0;
+      document.addEventListener('keydown',event=>{
+        if(!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName) && event.key.length===1){window.pageTypingEvents++;event.preventDefault();}
+      });
+      document.addEventListener('input',()=>window.pageTypingEvents++);
+    });
+    await search.pressSequentially('supplier a runtz');
+    assert.equal(await search.inputValue(),'supplier a runtz','Host shortcuts must not cancel search typing');
+    assert.equal(await box.locator('.template-choice').count(),1,'Real typed search narrows the choices');
+    assert.equal(await page.evaluate(()=>pageTypingEvents),0,'Picker typing is isolated from the website');
+    await search.press('ControlOrMeta+A');await search.press('Backspace');
+    assert.equal(await box.locator('.template-group').count(),2,'Keyboard clearing restores the full list');
     await search.fill('supplier a runtz');
     assert.equal(await box.locator('.template-choice').count(),1);
     await box.getByRole('button',{name:'Condense all',exact:true}).click();

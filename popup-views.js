@@ -1,10 +1,10 @@
 // Keep the single-template editor lightweight; load each workspace only when opened.
 function showPopupView(view, batchId = "") {
-  for (const id of ["template","bulk","directory"]) document.getElementById(`${id}View`).hidden = view !== id;
+  for (const id of ["template","bulk","directory","strains"]) document.getElementById(`${id}View`).hidden = view !== id;
   document.querySelectorAll("[data-popup-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.popupView === view)));
   if (view !== "template") {
-    const frame = document.getElementById(view === "bulk" ? "bulkWorkspace" : "directoryWorkspace");
-    if (!frame.getAttribute("src") || batchId) frame.src = `workspace.html?embedded=1&view=${view === "bulk" ? "products" : "directory"}${batchId ? `&batch=${encodeURIComponent(batchId)}` : ""}`;
+    const frame = document.getElementById(view === "bulk" ? "bulkWorkspace" : view === "strains" ? "strainsWorkspace" : "directoryWorkspace");
+    if (!frame.getAttribute("src") || batchId) frame.src = `workspace.html?embedded=1&view=${view === "bulk" ? "products" : view === "strains" ? "strains" : "directory"}${batchId ? `&batch=${encodeURIComponent(batchId)}` : ""}`;
   }
 }
 document.querySelector(".popup-view-tabs").addEventListener("click", (event) => { if (event.target.dataset.popupView) showPopupView(event.target.dataset.popupView); });

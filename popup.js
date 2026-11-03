@@ -214,6 +214,9 @@ function buildForm() {
         count.className = "sub";
         row.prepend(instructions, button, prompt, feedback);
         row.appendChild(count);
+        createStrainDescriptionControls(row,()=>({name:$("f_name").value,strain:$("f_strain").value,onlineDescription:$("f_onlineDescription").value}),
+          description=>{setValue(DEFS.onlineDescription,description);updateCounts();invalidateBulk();scheduleDraft();},
+          message=>{$("descriptionStatus").textContent=message;});
       }
       body.appendChild(row);
       if (key === "category") {
@@ -540,8 +543,9 @@ $("exportBtn").addEventListener("click", async () => {
     const {brandDirectory = []} = await chrome.storage.local.get("brandDirectory");
     const {categoryPairings = {}} = await chrome.storage.local.get("categoryPairings");
     const {titleCategoryRules = {}} = await chrome.storage.local.get("titleCategoryRules");
+    const strainDirectory=await loadStrainDirectory();
     const exportedTemplates = Object.fromEntries(Object.entries(templates).map(([name,template]) => [name,applyRequiredDefaults(removeRetiredFields({...template}))]));
-    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings, titleCategoryRules }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ format: "brooklyn-bourne-templates", version: 1, templates:exportedTemplates, brandDirectory:brandDirectory.filter((entry)=>isSelectableVendor(entry.vendor)), categoryPairings, titleCategoryRules, strainDirectory }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -565,6 +569,8 @@ $("importFile").addEventListener("change", async () => {
       throw new Error("Choose a template export from this extension.");
     }
     let importedTitleRules;
+    let importedStrains;
+    if(backup.strainDirectory !== undefined) importedStrains=validateStrainDirectory(backup.strainDirectory);
     if(backup.titleCategoryRules !== undefined) importedTitleRules={...validateTitleRules((await chrome.storage.local.get("titleCategoryRules")).titleCategoryRules || {}),...validateTitleRules(backup.titleCategoryRules)};
     let importedPairings;
     if (backup.categoryPairings !== undefined) {
@@ -617,7 +623,17 @@ $("importFile").addEventListener("change", async () => {
       while (Object.hasOwn(templates, target)) target = `${name} (imported ${count++})`;
       Object.defineProperty(templates, target, { value: template, enumerable: true, writable: true, configurable: true });
     }
-    await chrome.storage.local.set({ templates, ...(brandDirectory ? {brandDirectory} : {}), ...(importedPairings ? {categoryPairings:importedPairings} : {}), ...(importedTitleRules ? {titleCategoryRules:importedTitleRules} : {}) });
+    const importedData={templates,...(brandDirectory ? {brandDirectory} : {}),...(importedPairings ? {categoryPairings:importedPairings} : {}),...(importedTitleRules ? {titleCategoryRules:importedTitleRules} : {})};
+    if(importedStrains) {
+      await withStrainDirectoryLock(async()=>{
+        const current=await readOrCreateStrainDirectory(),records=new Map(current.map(record=>[strainDirectoryKey(record.name,record.type),record]));
+        for(const record of importedStrains) {
+          const key=strainDirectoryKey(record.name,record.type),existing=records.get(key);
+          if(!existing || !existing.description)records.set(key,record);
+        }
+        await chrome.storage.local.set({...importedData,strainDirectory:[...records.values()]});
+      });
+    }else await chrome.storage.local.set(importedData);
     await refresh();
     $("transferStatus").textContent = `Imported ${entries.length} templates. Existing templates were preserved.`;
   } catch (e) {

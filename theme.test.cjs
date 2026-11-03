@@ -24,14 +24,14 @@ async function main() {
     const popup=await ctx.newPage();popup.on('pageerror',e=>errors.push(e.message));
     await popup.goto(pageURL('popup.html'));
     await popup.waitForSelector('#f_name');
-    assert.equal(await popup.locator('#themeSelect').inputValue(),'black-gold');
+    assert.equal(await popup.locator('#themeSelect').inputValue(),'black-gold-deluxe-v2');
     const panel=await ctx.newPage();panel.on('pageerror',e=>errors.push(e.message));
     await panel.goto('about:blank');
     await panel.setContent('<body style="background:#292a2c"><div data-testid="product-detail-preview"></div></body>');
     for(const file of ['fields.js','dom-utils.js','fillers.js','engine.js','learn.js','theme.js','template-picker-style.js','template-picker.js','panel.js']) await panel.addScriptTag({path:path.join(__dirname,file)});
     await panel.locator('#box').waitFor({state:'visible'});
     fs.mkdirSync(path.join(__dirname,'previews'),{recursive:true});
-    const colors = {'black-gold':'rgb(17, 17, 19)','black-yellow':'rgb(17, 17, 17)','grey-maroon':'rgb(32, 33, 39)','forest-mint':'rgb(10, 28, 25)'};
+    const colors = {'black-gold-deluxe-v2':'rgb(17, 17, 19)','black-yellow-deluxe-v2':'rgb(17, 17, 17)','grey-maroon-deluxe-v2':'rgb(32, 33, 39)','forest-mint-deluxe-v2':'rgb(10, 28, 25)'};
     for(const [theme,bg] of Object.entries(colors)) {
       await popup.getByLabel('Theme',{exact:true}).selectOption(theme);
       await panel.waitForFunction(t=>[...document.querySelectorAll('div')].some(el=>el.shadowRoot && el.getAttribute('data-autofill-theme')===t),theme);
@@ -47,13 +47,13 @@ async function main() {
       await panel.locator('#box').screenshot({path:path.join(__dirname,'previews',`panel-${theme}.png`)});
     }
     // Reverse direction, and then confirm persistence after reopening the popup.
-    await panel.getByLabel('Theme',{exact:true}).selectOption('grey-maroon');
-    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='grey-maroon');
+    await panel.getByLabel('Theme',{exact:true}).selectOption('grey-maroon-deluxe-v2');
+    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='grey-maroon-deluxe-v2');
     await popup.reload();
-    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='grey-maroon');
+    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='grey-maroon-deluxe-v2');
     await popup.evaluate(()=>chrome.storage.local.set({theme:'unknown-theme'}));
-    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='black-gold');
-    assert.equal(await panel.getByLabel('Theme',{exact:true}).inputValue(),'black-gold');
+    await popup.waitForFunction(()=>document.documentElement.dataset.autofillTheme==='black-gold-deluxe-v2');
+    assert.equal(await panel.getByLabel('Theme',{exact:true}).inputValue(),'black-gold-deluxe-v2');
     await panel.getByRole('button',{name:'Hide',exact:true}).click();
     await panel.getByRole('button',{name:'Autofiller',exact:true}).click();
     for(const tab of ['Steps','Fields','Lists','Fill']) await panel.getByRole('button',{name:tab,exact:true}).click();
