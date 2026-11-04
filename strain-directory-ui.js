@@ -42,7 +42,7 @@ function createStrainDescriptionControls(container,getProduct,applyDescription,r
 }
 
 function createStrainDirectoryEditor(root) {
-  let records=[],editingKey=null,baseline=null,loading=false,formGeneration=0;
+  let records=[],editingKey=null,baseline=null,loading=false,formGeneration=0,reloadGeneration=0;
   const heading=strainNode("div","","page-heading");heading.append(strainNode("h1","Strain directory"));
   const intro=strainNode("p","Save reusable strain descriptions. Existing template descriptions are collected the first time this directory is used.","sub");
   const grid=strainNode("div","","strain-directory-grid"),catalog=strainNode("section","","card"),editor=strainNode("section","","card");
@@ -59,13 +59,17 @@ function createStrainDirectoryEditor(root) {
   const description=makeField("Description",strainNode("textarea"),"directoryStrainDescription");description.rows=9;description.maxLength=2500;
   const length=strainNode("p","0/2500 characters","sub");description.setAttribute("aria-describedby","directoryStrainLength");length.id="directoryStrainLength";editorBody.append(length);
   const actions=strainNode("div","","field-actions"),save=strainNode("button","Save strain","gold-button"),remove=strainNode("button","Delete strain");save.id="saveStrain";remove.id="deleteStrain";remove.disabled=true;actions.append(save,remove);editorBody.append(actions);
+  const state=strainNode("p","","sub");state.id="directoryStrainState";state.setAttribute("role","status");editorBody.append(state);
   const status=strainNode("p","","sub");status.id="strainDirectoryStatus";status.setAttribute("role","status");root.append(heading,intro,grid,status);
   function report(message,error=false){status.textContent=message;status.dataset.error=String(error);}
+  function dirty(){return name.value!==(baseline?.name || "") || type.value!==(baseline?.type || "") || description.value!==(baseline?.description || "");}
+  function updateState(){state.textContent=dirty() ? "Unsaved changes · Save strain (Ctrl+S)" : baseline ? "Saved" : "New strain";}
+  function choose(record=null){if(!loading && dirty() && !confirm("Discard unsaved strain edits?"))return;select(record);}
   function select(record=null) {
     formGeneration++;
     editingKey=record ? strainDirectoryKey(record.name,record.type) : null;baseline=record ? {...record} : null;
     name.value=record?.name || "";type.value=record?.type || "";description.value=record?.description || "";
-    length.textContent=`${description.value.length}/2500 characters`;remove.disabled=!record;render();
+    length.textContent=`${description.value.length}/2500 characters`;remove.disabled=!record;updateState();render();
   }
   function render() {
     const terms=search.value.trim().toLowerCase().split(/\s+/).filter(Boolean),matches=records.filter(record=>terms.every(term=>`${record.name} ${STRAIN_DIRECTORY_TYPE_LABELS[record.type]} ${record.type}`.toLowerCase().includes(term)));
@@ -73,13 +77,18 @@ function createStrainDirectoryEditor(root) {
     list.replaceChildren(...matches.sort((a,b)=>a.name.localeCompare(b.name)||a.type.localeCompare(b.type)).map(record=>{
       const button=strainNode("button","","strain-directory-item");button.type="button";
       button.append(strainNode("strong",record.name),strainNode("span",`${STRAIN_DIRECTORY_TYPE_LABELS[record.type]} · ${record.description ? "Description saved" : "Description blank"}`,"sub"));
-      button.setAttribute("aria-pressed",String(editingKey===strainDirectoryKey(record.name,record.type)));button.addEventListener("click",()=>select(record));return button;
+      button.setAttribute("aria-pressed",String(editingKey===strainDirectoryKey(record.name,record.type)));button.addEventListener("click",()=>choose(record));return button;
     }));
   }
-  async function reload(){records=await loadStrainDirectory();render();}
-  search.addEventListener("input",render);add.addEventListener("click",()=>{select();name.focus();});description.addEventListener("input",()=>{length.textContent=`${description.value.length}/2500 characters`;});
+  async function reload(){const generation=++reloadGeneration,latest=await loadStrainDirectory();if(generation!==reloadGeneration)return;records=latest;render();}
+  search.addEventListener("input",render);add.addEventListener("click",()=>{choose();name.focus();});description.addEventListener("input",()=>{length.textContent=`${description.value.length}/2500 characters`;});
+  for(const input of [name,type,description]){input.addEventListener("input",updateState);input.addEventListener("change",updateState);}
+  document.addEventListener("keydown",event=>{
+    if(!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase()!=="s" || event.repeat || event.isComposing || root.closest("[hidden]"))return;
+    event.preventDefault();if(!save.disabled)save.click();
+  });
   save.addEventListener("click",async()=>{
-    if(loading)return;loading=true;save.disabled=true;report("Saving strain…");
+    if(loading)return;loading=true;save.disabled=true;reloadGeneration++;report("Saving strain…");
     try {
       const submitted={name:name.value,type:type.value,description:description.value},record=validateStrainDirectory([submitted])[0],key=strainDirectoryKey(record.name,record.type),originalKey=editingKey,originalBaseline=baseline,generation=formGeneration;
       records=await mutateStrainDirectory(latest=>{
@@ -91,12 +100,12 @@ function createStrainDirectoryEditor(root) {
       const sameForm=formGeneration===generation && editingKey===originalKey && name.value===submitted.name && type.value===submitted.type && description.value===submitted.description;
       if(sameForm)select(record);
       else {if(formGeneration===generation && editingKey===originalKey){editingKey=key;baseline={...record};remove.disabled=false;}render();}
-      announceStrainDirectoryChange();report(`Saved ${record.name}.${sameForm ? "" : " Your newer edits are still in the form."}`);
+      updateState();announceStrainDirectoryChange();report(`Saved ${record.name}.${sameForm ? "" : " Your newer edits are still in the form."}`);
     }catch(error){report(error.message,true);}finally{loading=false;save.disabled=false;}
   });
   remove.addEventListener("click",async()=>{
     if(loading || !editingKey || !confirm(`Delete ${baseline.name} from Strain directory? Saved templates are kept.`))return;
-    loading=true;remove.disabled=true;report("Deleting strain…");
+    loading=true;remove.disabled=true;reloadGeneration++;report("Deleting strain…");
     try {
       const originalKey=editingKey,originalBaseline=baseline,generation=formGeneration;
       records=await mutateStrainDirectory(latest=>{
@@ -108,7 +117,7 @@ function createStrainDirectoryEditor(root) {
     }catch(error){remove.disabled=false;report(error.message,true);}finally{loading=false;}
   });
   collect.addEventListener("click",async()=>{
-    if(loading)return;loading=true;collect.disabled=true;report("Collecting descriptions…");
+    if(loading)return;loading=true;collect.disabled=true;reloadGeneration++;report("Collecting descriptions…");
     try {
       const templates=(await chrome.storage.local.get("templates")).templates || {};let result;
       records=await mutateStrainDirectory(latest=>{result=poolStrainDescriptions(latest,templates);return result.directory;});

@@ -14,6 +14,9 @@ async function main() {
  assert.equal(c.strainIdentity({name:'Legacy product',strain:'Sativa-dominant hybrid'}),null);
  assert.equal(c.strainIdentity({name:'Brand | Hybrid | 1g (H)',strain:'Hybrid'}),null);
  assert.deepEqual(plain(c.strainIdentity({name:'Legacy product',strain:'Blue Dream'})),{name:'Blue Dream',type:''});
+ assert.equal(c.strainIdentity({name:'Brand | Runtz | 1g (S) (I)',strain:'Runtz'}),null,'Conflicting markers cannot fall back to a guessed directory identity');
+ assert.deepEqual(plain(c.strainIdentity({name:'Brand | Runtz | 1g (S/H) (SH)'})),{name:'Runtz',type:'S/H'},'Equivalent markers remain compatible');
+ assert.equal(c.poolStrainDescriptions([],{Ambiguous:{name:'Brand | Runtz | 1g (S) (I)',onlineDescription:'Do not pool.'}}).added,0);
  const entry={name:'Runtz',type:'H',description:'Sweet citrus aroma.'};
  assert.equal(c.strainDirectoryKey('  RUNTZ  ','H'),c.strainDirectoryKey('Runtz','H'));
  assert.throws(()=>c.validateStrainDirectory({}),/Invalid/);

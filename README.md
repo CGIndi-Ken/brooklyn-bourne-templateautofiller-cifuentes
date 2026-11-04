@@ -1,10 +1,20 @@
 # Brooklyn Bourne Autofiller
 
+## Version 1.0.0
+
+The Version 1 release includes title-based brand, weight, strain and category filling; ordered THC pasting; bulk editing; reusable strain descriptions; vendor/brand directories; and Patterned and Effects themes. It includes the latest search and unsaved-edit protections.
+
+For installation, extract the Version 1 extension ZIP, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the extracted folder containing `manifest.json`. The coworker package contains only the extension files and license. Saved templates and directory data transfer separately through the extension's JSON export/import controls.
+
 The **Theme** menu offers ten **Patterned** palettes and ten matching **Effects** variants. Solid themes have been removed; saved Solid choices migrate to the matching Patterned palette. Black and gold Patterned is the default. Effects add small edge highlights, focus glow and a short hover lift. Reduced motion disables the lift and transitions.
 
 Patterned backgrounds use subtle static textures and gradients, with solid product fields for readability. Theme choices synchronize across the popup, bulk editor, directories and on-page Autofiller. There are no downloaded assets or continuous animations, and no premium tier labels.
 
 Bulk editing controls are centralized in **Apply to selected**. Expand **THC, tags & pricing** there for fill-blanks, per-field Apply/Clear, additive tags, and loading unfinished templates. The large Bulk updates banner has been removed. In the popup, first open **Shared edits & add products** to reach these tools.
+
+## Refinements (0.31.1)
+
+Strain directory now marks unsaved edits, asks before discarding them when switching entries, and supports Ctrl+S / Cmd+S. Overlapping directory refreshes keep the latest result. Conflicting strain-type markers in a title block directory lookup and pooling instead of choosing a description. Autofiller search leaves IME composition keys alone.
 
 ## Strain directory and search (0.31.0)
 

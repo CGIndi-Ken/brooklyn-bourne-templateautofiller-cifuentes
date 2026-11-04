@@ -100,6 +100,14 @@ async function main(){
   await page.locator('#strainDirectorySearch').fill('Runtz');await page.locator('.strain-directory-item').filter({hasText:'Hybrid'}).click();
   await page.evaluate(async()=>{const directory=(await chrome.storage.local.get('strainDirectory')).strainDirectory;await chrome.storage.local.set({strainDirectory:directory.map(record=>record.name==='Runtz'&&record.type==='H'?{...record,description:'Saved by another window.'}:record)});});
   await page.locator('#directoryStrainDescription').fill('Stale local edit.');await page.locator('#saveStrain').click();await page.waitForFunction(()=>document.getElementById('strainDirectoryStatus').textContent.includes('changed in another window'));assert.equal(storage.strainDirectory.find(record=>record.name==='Runtz'&&record.type==='H').description,'Saved by another window.');
+  await page.locator('#newStrain').click();await page.locator('#directoryStrainName').fill('Shortcut strain');await page.locator('#directoryStrainType').selectOption('H');await page.locator('#directoryStrainDescription').fill('Saved using the keyboard.');
+  assert.match(await page.locator('#directoryStrainState').textContent(),/Unsaved changes/);
+  await page.locator('#directoryStrainDescription').press('ControlOrMeta+s');await page.waitForFunction(()=>document.getElementById('strainDirectoryStatus').textContent==='Saved Shortcut strain.');
+  assert.equal(storage.strainDirectory.find(record=>record.name==='Shortcut strain').description,'Saved using the keyboard.');
+  await page.locator('#directoryStrainDescription').fill('Keep this unsaved edit.');page.removeAllListeners('dialog');page.once('dialog',dialog=>dialog.dismiss());await page.locator('#newStrain').click();
+  assert.equal(await page.locator('#directoryStrainDescription').inputValue(),'Keep this unsaved edit.');
+  page.once('dialog',dialog=>dialog.dismiss());await page.locator('.strain-directory-item').first().click();assert.equal(await page.locator('#directoryStrainName').inputValue(),'Shortcut strain');
+  page.on('dialog',dialog=>dialog.accept());
   await page.setViewportSize({width:430,height:850});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
   assert.deepEqual(errors,[]);
   console.log('Passed strain directory auto-pooling, typed search and CRUD, curated preservation, popup/iframe and bulk reuse, scoped blank fills, Undo, drafts/saving, backup transfer and narrow layouts.');

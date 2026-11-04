@@ -34,6 +34,8 @@ async function main(){
       document.addEventListener('input',()=>window.pageTypingEvents++);
     });
     await search.pressSequentially('supplier a runtz');
+    await search.evaluate(element=>element.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',isComposing:true,bubbles:true,composed:true,cancelable:true})));
+    assert.equal(await panel.isVisible(),true,'IME composition must not close the search picker');
     assert.equal(await search.inputValue(),'supplier a runtz','Host shortcuts must not cancel search typing');
     assert.equal(await box.locator('.template-choice').count(),1,'Real typed search narrows the choices');
     assert.equal(await page.evaluate(()=>pageTypingEvents),0,'Picker typing is isolated from the website');

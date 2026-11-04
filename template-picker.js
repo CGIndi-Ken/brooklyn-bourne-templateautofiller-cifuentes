@@ -61,6 +61,7 @@ function createTemplatePicker(select, root = document) {
     // Shadow DOM retargets these events to the host <div> on the page. Site
     // hotkeys can otherwise treat typing here as a page command and cancel it.
     event.stopPropagation();
+    if(event.isComposing)return;
     if(event.key==='Escape'){event.preventDefault();close(true);}
     if(event.key==='ArrowDown' && event.target===search){event.preventDefault();results.querySelector('summary')?.focus();}
   });

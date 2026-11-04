@@ -24,6 +24,8 @@ function isStrainTypeName(name) {
 }
 function strainIdentity(template={}) {
   const title=String(template.name || "").trim();
+  const markers=[...title.matchAll(/\(\s*(S|H|I|[SI]\s*\/?\s*H)\s*\)/gi)].map(match=>match[1].toUpperCase().replace(/\s/g,"").replace(/^([SI])H$/,"$1/H"));
+  if(new Set(markers).size>1) return null;
   let identity=null;
   try {
     const parsed=strainFromTitle(title);
