@@ -12,6 +12,12 @@ let storedControls = [];
 let gramsAuto=true, categoryAuto=true, previousCategoryName="";
 let strainAuto=true, tagsAuto=true, previousStrainName="";
 let brandAuto=true;
+let descriptionAuto=true;
+function updateTitleDescription() {
+  if(!descriptionAuto || !$("f_onlineDescription"))return;
+  const values={name:$("f_name").value,strain:$("f_strain").value,onlineDescription:$("f_onlineDescription").value,inferDescriptionFromDirectory:true};
+  updateDescriptionFromDirectory(values);setValue(DEFS.onlineDescription,values.onlineDescription);
+}
 function updateTitleBrand() {
   if(!brandAuto) return;
   const brand=brandFromTitle($("f_name").value);
@@ -215,7 +221,7 @@ function buildForm() {
         row.prepend(instructions, button, prompt, feedback);
         row.appendChild(count);
         createStrainDescriptionControls(row,()=>({name:$("f_name").value,strain:$("f_strain").value,onlineDescription:$("f_onlineDescription").value}),
-          description=>{setValue(DEFS.onlineDescription,description);updateCounts();invalidateBulk();scheduleDraft();},
+          description=>{descriptionAuto=true;setValue(DEFS.onlineDescription,description);updateCounts();invalidateBulk();scheduleDraft();},
           message=>{$("descriptionStatus").textContent=message;});
       }
       body.appendChild(row);
@@ -289,6 +295,7 @@ function loadSelected(templates) {
   gramsAuto=t.inferGramsFromTitle === true;categoryAuto=t.inferCategoryFromTitle === true;previousCategoryName=t.name || "";
   strainAuto=t.inferStrainFromTitle === true;tagsAuto=t.inferTagsFromTitle === true;previousStrainName=t.name || "";
   brandAuto=t.inferBrandFromTitle === true;updateTitleBrand();
+  descriptionAuto=productFlag(t,"inferDescriptionFromDirectory");updateTitleDescription();
   updateGramsFromName();
   $("copyLoc").checked = true;
   setCategoryPresetUnlocked(!!t.categoryPresetUnlocked);
@@ -324,7 +331,7 @@ function flushDraft() {
 }
 function templateDraftState() {
   const values = Object.fromEntries(storedControls.map(({ def, el }) => [def.key, el.value]));
-  return { values, inferBrandFromTitle:brandAuto, inferStrainFromTitle:strainAuto, inferTagsFromTitle:tagsAuto, inferGramsFromTitle:gramsAuto, inferCategoryFromTitle:categoryAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
+  return { values, inferDescriptionFromDirectory:descriptionAuto, inferBrandFromTitle:brandAuto, inferStrainFromTitle:strainAuto, inferTagsFromTitle:tagsAuto, inferGramsFromTitle:gramsAuto, inferCategoryFromTitle:categoryAuto, name: $("templateName").value, selected: $("templateSelect").value, copyToLocation: $("copyLoc").checked, categoryPresetUnlocked: $("unlockCategoryPreset").checked, bulkNames: $("bulkNames").value };
 }
 async function saveDraft() {
   clearTimeout(draftTimer);
@@ -368,6 +375,7 @@ function clearTemplateForm() {
   draftDirty = false;
   gramsAuto=true;categoryAuto=true;previousCategoryName="";strainAuto=true;tagsAuto=true;previousStrainName="";
   brandAuto=true;
+  descriptionAuto=true;
   STORED_DEFS.forEach((d) => setValue(d, NEW_TEMPLATE_DEFAULTS[d.key] ?? ""));
   updateGramsFromName();updateTitleCategory();
   $("copyLoc").checked = true;
@@ -415,7 +423,8 @@ function onFormEdit(event) {
   if(event.target.id === "f_strain") strainAuto=false;
   if(event.target.id === "f_tags") tagsAuto=false;
   if(event.target.id === "f_brand") brandAuto=false;
-  if (event.target.id === "f_name") {updateGramsFromName(true);updateTitleCategory();updateTitleStrain();updateTitleBrand();}
+  if(event.target.id === "f_onlineDescription") descriptionAuto=false;
+  if (event.target.id === "f_name") {updateGramsFromName(true);updateTitleCategory();updateTitleStrain();updateTitleBrand();updateTitleDescription();}
   if (event.target.id === "f_category") applyCategoryDefaults(true);
   if (event.target.id === "unlockCategoryPreset") {
     setCategoryPresetUnlocked(event.target.checked);
@@ -458,6 +467,7 @@ function readTemplateForm() {
   data.copyToLocation = true;
   data.inferStrainFromTitle=strainAuto;
   data.inferBrandFromTitle=brandAuto;
+  data.inferDescriptionFromDirectory=descriptionAuto;
   data.inferTagsFromTitle=tagsAuto;
   data.inferGramsFromTitle=gramsAuto;
   data.inferCategoryFromTitle=categoryAuto;
@@ -590,9 +600,9 @@ $("importFile").addEventListener("change", async () => {
       if (template.categoryPresetUnlocked !== undefined && typeof template.categoryPresetUnlocked !== "boolean") throw new Error(`Invalid category preset setting in "${name}".`);
       if (template.inferGramsFromTitle !== undefined && typeof template.inferGramsFromTitle !== "boolean") throw new Error(`Invalid weight setting in "${name}".`);
       if(template.inferCategoryFromTitle !== undefined && typeof template.inferCategoryFromTitle!=="boolean") throw new Error(`Invalid title category setting in "${name}".`);
-      for(const flag of ["inferStrainFromTitle","inferTagsFromTitle","inferBrandFromTitle"]) {
+      for(const flag of ["inferStrainFromTitle","inferTagsFromTitle","inferBrandFromTitle","inferDescriptionFromDirectory"]) {
         if(template[flag] !== undefined && typeof template[flag] !== "boolean") throw new Error(`Invalid title type setting in "${name}".`);
-        clean[flag]=template[flag] === true;
+        clean[flag]=productFlag(template,flag);
       }
       clean.inferCategoryFromTitle=template.inferCategoryFromTitle === true;
       clean.inferGramsFromTitle=template.inferGramsFromTitle === true;
@@ -645,6 +655,7 @@ $("importFile").addEventListener("change", async () => {
 
 (async () => {
   await categoryPairingsReady;
+  await loadStrainDirectory().catch(()=>{});
   learned = await getLearned();
   buildForm();
   const count = Object.keys(learned).length;
@@ -658,6 +669,7 @@ $("importFile").addEventListener("change", async () => {
     gramsAuto=templateDraft.inferGramsFromTitle === true;categoryAuto=templateDraft.inferCategoryFromTitle === true;previousCategoryName=templateDraft.values.name || "";
     strainAuto=templateDraft.inferStrainFromTitle === true;tagsAuto=templateDraft.inferTagsFromTitle === true;previousStrainName=templateDraft.values.name || "";
     brandAuto=templateDraft.inferBrandFromTitle === true;
+    descriptionAuto=productFlag({...templateDraft.values,inferDescriptionFromDirectory:templateDraft.inferDescriptionFromDirectory},"inferDescriptionFromDirectory");
     $("templateName").value = templateDraft.name || "";
     $("templateSelect").value = templateDraft.selected || "";
     $("copyLoc").checked = true;
@@ -666,10 +678,11 @@ $("importFile").addEventListener("change", async () => {
     $("bulkNames").value = templateDraft.bulkNames || "";
     updateCounts();
   }
-  updateGramsFromName();updateTitleCategory();updateTitleBrand();
+  updateGramsFromName();updateTitleCategory();updateTitleBrand();updateTitleDescription();
   templatePicker.sync();
   templateEditorInitialized = true;
   document.dispatchEvent(new Event("templateEditorReady"));
 })();
 
 document.addEventListener("titleCategoryRulesChanged",()=>{if($("useTitleCategory")) $("useTitleCategory").disabled=!categoryFromTitle($("f_name").value);});
+document.addEventListener("strainDescriptionCacheReady",()=>{if(templateEditorInitialized){const before=$("f_onlineDescription").value;updateTitleDescription();if(before!==$("f_onlineDescription").value){updateCounts();scheduleDraft();}}});

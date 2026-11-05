@@ -1,12 +1,13 @@
 // Retired duplicate vendor; keep existing template values but omit it from choices.
 const isSelectableVendor = (vendor) => String(vendor ?? "").trim().toLowerCase() !== "nys distribution";
 const WORKSPACE_FIELDS = FIELD_DEFS.filter((def) => !def.fixed && !def.copyOf);
-const WORKSPACE_FLAGS = ["categoryPresetUnlocked", "inferGramsFromTitle", "inferCategoryFromTitle", "inferStrainFromTitle", "inferTagsFromTitle", "inferBrandFromTitle"];
+const WORKSPACE_FLAGS = ["categoryPresetUnlocked", "inferGramsFromTitle", "inferCategoryFromTitle", "inferStrainFromTitle", "inferTagsFromTitle", "inferBrandFromTitle", "inferDescriptionFromDirectory"];
+function productFlag(product,key) {return key === "inferDescriptionFromDirectory" && product[key]===undefined ? !String(product.onlineDescription || "").trim() : !!product[key];}
 
 function productValues(template = {}) {
   const values = { ...template };
   for (const def of WORKSPACE_FIELDS) values[def.key] = String(template[def.key] ?? "");
-  for (const key of WORKSPACE_FLAGS) values[key] = !!template[key];
+  for (const key of WORKSPACE_FLAGS) values[key] = productFlag(template,key);
   return applyTemplatePreset(values);
 }
 
@@ -17,6 +18,7 @@ function newProduct(shared = {}, overrides = {}) {
   values.inferCategoryFromTitle=!Object.hasOwn(overrides,"category");
   values.inferStrainFromTitle=!String(overrides.strain || "").trim();
   values.inferTagsFromTitle=!Object.hasOwn(overrides,"tags");
+  values.inferDescriptionFromDirectory=!String(overrides.onlineDescription || "").trim();
   const manualBrand=String(overrides.brand ?? (shared.inferBrandFromTitle ? "" : shared.brand) ?? "").trim();
   values.inferBrandFromTitle=overrides.inferBrandFromTitle === undefined ? !manualBrand : overrides.inferBrandFromTitle === true;
   updateStrainFromTitle(values,shared.name);
@@ -27,7 +29,7 @@ function newProduct(shared = {}, overrides = {}) {
 function editProductField(values, key, value) {
   const oldName=values.name;
   values[key]=value;
-  const manualFlags={gramsConcentration:"inferGramsFromTitle",strain:"inferStrainFromTitle",tags:"inferTagsFromTitle",brand:"inferBrandFromTitle"};
+  const manualFlags={gramsConcentration:"inferGramsFromTitle",strain:"inferStrainFromTitle",tags:"inferTagsFromTitle",brand:"inferBrandFromTitle",onlineDescription:"inferDescriptionFromDirectory"};
   if(Object.hasOwn(manualFlags,key)) values[manualFlags[key]]=false;
   if(["category","regulatoryCategory","externalCategory","categoryPresetUnlocked"].includes(key)) values.inferCategoryFromTitle=false;
   if(key === "name") {
@@ -35,6 +37,7 @@ function editProductField(values, key, value) {
     updateCategoryFromTitle(values,oldName);
     updateStrainFromTitle(values,oldName);
     updateBrandFromTitle(values);
+    if(typeof updateDescriptionFromDirectory === "function") updateDescriptionFromDirectory(values);
   }
 }
 
@@ -48,7 +51,7 @@ function productDiff(values, baseline = {}) {
 
 function sameProduct(a, b) {
   return WORKSPACE_FIELDS.every((def) => String(a[def.key] ?? "") === String(b[def.key] ?? "")) &&
-    WORKSPACE_FLAGS.every((key) => !!a[key] === !!b[key]);
+    WORKSPACE_FLAGS.every((key) => productFlag(a,key) === productFlag(b,key));
 }
 
 // Compare editable values rather than object serialization: old templates can
@@ -56,7 +59,7 @@ function sameProduct(a, b) {
 function mergeProductChanges(base = {}, local = {}, latest = {}) {
   const fields = [...WORKSPACE_FIELDS.map((def) => def.key), ...WORKSPACE_FLAGS];
   const flags = new Set(WORKSPACE_FLAGS);
-  const value = (product, key) => flags.has(key) ? !!product[key] : String(product[key] ?? "");
+  const value = (product, key) => flags.has(key) ? productFlag(product,key) : String(product[key] ?? "");
   const changed = (product, keys) => keys.some((key) => value(product, key) !== value(base, key));
   const values = { ...latest }, conflicts = new Set();
   if (base === null) {
@@ -106,6 +109,11 @@ function mergeProductChanges(base = {}, local = {}, latest = {}) {
   if((local.inferBrandFromTitle || latest.inferBrandFromTitle) && changed(local,brandFields) && changed(latest,brandFields) && brandFields.some(key=>value(local,key)!==value(latest,key))) {
     keepGroupTogether([...new Set([...brandFields,...((local.inferCategoryFromTitle || latest.inferCategoryFromTitle) ? categoryFields : []),...((local.inferGramsFromTitle || latest.inferGramsFromTitle) ? weightFields : []),...((local.inferStrainFromTitle || latest.inferStrainFromTitle || local.inferTagsFromTitle || latest.inferTagsFromTitle) ? strainFields : [])])]);
   }
+  const descriptionFields=["name","onlineDescription","inferDescriptionFromDirectory"];
+  if((productFlag(local,"inferDescriptionFromDirectory") || productFlag(latest,"inferDescriptionFromDirectory")) && changed(local,descriptionFields) && changed(latest,descriptionFields) && descriptionFields.some(key=>value(local,key)!==value(latest,key))) {
+    keepGroupTogether([...new Set([...descriptionFields,...categoryFields,...weightFields,...strainFields,...brandFields])]);
+  }
+  if(typeof updateDescriptionFromDirectory === "function") updateDescriptionFromDirectory(values);
   removeRetiredFields(values);
   return {values:applyRequiredDefaults(values),conflicts:[...conflicts]};
 }

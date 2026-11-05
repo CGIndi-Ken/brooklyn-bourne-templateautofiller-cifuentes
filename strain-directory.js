@@ -22,6 +22,48 @@ function isStrainTypeName(name) {
   const normalized=normalizeStrainName(name).toLowerCase().replace(/[-/]/g," ").replace(/\s+/g," ");
   return ["sativa","hybrid","indica","sativa dominant hybrid","indica dominant hybrid","s","h","i","s h","i h"].includes(normalized);
 }
+function parseStrainList(text) {
+  const lines=String(text || "").replace(/^\uFEFF/,"").replace(/\r\n?/g,"\n").split("\n"),entries=[];
+  let current=null;
+  function finish(){
+    if(!current)return;
+    const description=current.parts.join("\n").trim();
+    if(!description)throw new Error(`Line ${current.line}: add a description for ${current.name}.`);
+    if(description.length>2500)throw new Error(`Line ${current.line}: ${current.name} exceeds 2500 description characters.`);
+    entries.push(validateStrainDirectory([{name:current.name,type:current.type,description}])[0]);
+  }
+  lines.forEach((raw,index)=>{
+    const line=raw.trim(),header=line.replace(/^(?:[-*•]|\d+[.)])\s+/,"");
+    const match=header.match(/^(.+?)\s*\(\s*(S|H|I|[SI]\s*\/?\s*H)\s*\)\s*[-–—]\s*(.*)$/i);
+    if(match){
+      finish();current={name:match[1].trim(),type:match[2].toUpperCase().replace(/\s/g,"").replace(/^([SI])H$/,"$1/H"),parts:[match[3]],line:index+1};
+    }else {
+      if(line && (!current || /^.*\([^)]*\)\s*[-–—]/.test(header) || /^.*\(\s*(S|H|I|[SI]\s*\/?\s*H)\s*\)/i.test(header))) throw new Error(`Line ${index+1}: use Strain name (S, H, I, S/H or I/H) - description.`);
+      if(current)current.parts.push(raw.trim());
+    }
+  });
+  finish();if(!entries.length)throw new Error("Paste at least one strain with its type and description.");
+  const unique=new Map();let duplicates=0;
+  for(const entry of entries){
+    const key=strainDirectoryKey(entry.name,entry.type),previous=unique.get(key);
+    if(previous && previous.description!==entry.description)throw new Error(`The list contains different descriptions for ${entry.name} (${entry.type}). Keep one before adding strains.`);
+    if(previous)duplicates++;else unique.set(key,entry);
+  }
+  return {entries:[...unique.values()],duplicates};
+}
+function planStrainList(text,directory=[],replaceExisting=false) {
+  const parsed=parseStrainList(text),next=validateStrainDirectory(directory),saved=new Map(next.map(entry=>[strainDirectoryKey(entry.name,entry.type),entry]));
+  const items=[];let added=0,updated=0,skipped=parsed.duplicates,conflicts=0;
+  for(const entry of parsed.entries){
+    const key=strainDirectoryKey(entry.name,entry.type),existing=saved.get(key);let action;
+    if(!existing){next.push({...entry});saved.set(key,next[next.length-1]);added++;action="Add";}
+    else if(existing.description===entry.description){skipped++;action="Already saved";}
+    else if(!existing.description || replaceExisting){existing.description=entry.description;updated++;action="Update";}
+    else {conflicts++;action="Keep existing · different description";}
+    items.push({...entry,action});
+  }
+  return {directory:next,items,added,updated,skipped,conflicts};
+}
 function strainIdentity(template={}) {
   const title=String(template.name || "").trim();
   const markers=[...title.matchAll(/\(\s*(S|H|I|[SI]\s*\/?\s*H)\s*\)/gi)].map(match=>match[1].toUpperCase().replace(/\s/g,"").replace(/^([SI])H$/,"$1/H"));
@@ -67,6 +109,11 @@ function findStrainDescription(template, directory) {
   if(exact) return exact;
   const compatible=identity.type ? candidates.filter(entry=>!entry.type) : candidates;
   return compatible.length && new Set(compatible.map(entry=>entry.description)).size===1 ? compatible[0] : null;
+}
+let cachedStrainDirectory=[],strainDescriptionCacheLoaded=false;
+function setStrainDirectoryCache(directory) {cachedStrainDirectory=validateStrainDirectory(directory);strainDescriptionCacheLoaded=true;}
+function updateDescriptionFromDirectory(template) {
+  if(template.inferDescriptionFromDirectory && strainDescriptionCacheLoaded) template.onlineDescription=findStrainDescription(template,cachedStrainDirectory)?.description || "";
 }
 
 // Web Locks coordinate separate extension windows. The queue also serializes

@@ -54,11 +54,12 @@ const CATEGORY_PRESETS = {
   "disposable vapes": { regulatoryCategory: "Oil for Vaporization", externalCategory: "Vape Cartridge - Each" },
   "edibles": { regulatoryCategory: "Gel-based foods", externalCategory: "Infused Edible - Each" },
   "drinks": { regulatoryCategory: "Beverages", externalCategory: "Infused Edible - Each" },
+  "concentrate": { regulatoryCategory: "Resin", externalCategory: "Concentrate/Extract - Each" },
   "preroll packs": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
   "prerolls": { regulatoryCategory: "Cannabis Flower Products", externalCategory: "" },
 };
-const categoryKey = (category) => String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "").trim();
-const canonicalCategoryName = category => /^carts\s*\(new categories\)$/i.test(String(category || "").trim()) ? "Carts (New Category)" : String(category || "");
+const categoryKey = (category) => String(category || "").trim().toLowerCase().replace(/\s*\(new categor(?:y|ies)\)\s*$/, "").trim().replace(/^concentrates$/,"concentrate");
+const canonicalCategoryName = category => categoryKey(category)==="concentrate" ? "Concentrate" : /^carts\s*\(new categories\)$/i.test(String(category || "").trim()) ? "Carts (New Category)" : String(category || "");
 const titleRuleKey = text => String(text || "").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 const PREROLL_EXTERNALS = {infused:"Infused Pre-Roll - Each",uninfused:"Raw Pre-Roll - Each"};
 const isPrerollCategory = category => ["prerolls","preroll packs"].includes(categoryKey(category));
@@ -83,7 +84,9 @@ function prerollVariantFor(product = {}) {
   if(/\b(?:pre rolls?|prerolls?)\b/.test(suffix)) return "uninfused";
   return "";
 }
+const CONCENTRATE_TITLE_PHRASES = ["cured resin","live resin","resin","sugar","honeycomb","badder","budder","diamond","diamonds","hash","rso","concentrate","concentrates"];
 const BUILTIN_TITLE_RULES = Object.fromEntries([
+  ...CONCENTRATE_TITLE_PHRASES.map(key=>[key,{category:"Concentrate",...CATEGORY_PRESETS.concentrate}]),
   ...["flower","infused flower"].map(key=>[key,{category:"Flower (New Category)",...CATEGORY_PRESETS.flower}]),
   ["ground flower",{category:"Ground flower (New Category)",...CATEGORY_PRESETS["ground flower"]}],
   ...["cart","carts","cartridge","cartridges"].map(key=>[key,{category:"Carts (New Category)",...CATEGORY_PRESETS.carts}]),
@@ -109,8 +112,11 @@ function categoryFromTitle(name) {
   // No category wording means Flower. Strain markers and pack counts are not categories.
   if(parts.every(part=>countOnly.test(part))) return {category:"Flower (New Category)",regulatoryCategory:"Cannabis Flower Products",externalCategory:"Bud/Flower - Each"};
   const suffix=titleRuleKey(designation);
-  const matches=Object.entries({...BUILTIN_TITLE_RULES,...rememberedTitleRules}).filter(([key])=>(` ${suffix} `).includes(` ${key} `));
+  let matches=Object.entries({...BUILTIN_TITLE_RULES,...rememberedTitleRules}).filter(([key])=>(` ${suffix} `).includes(` ${key} `));
   if(!matches.length) return null;
+  // Resin can describe a cart or infused pre-roll rather than a loose concentrate.
+  const productMatches=matches.filter(([key])=>!CONCENTRATE_TITLE_PHRASES.includes(key) || Object.hasOwn(rememberedTitleRules,key));
+  if(productMatches.length)matches=productMatches;
   // Prefer the most specific phrase; conflicting equally specific rules need manual review.
   const longest=Math.max(...matches.map(([key])=>key.length));
   const best=matches.filter(([key])=>key.length===longest);
@@ -171,6 +177,7 @@ function applyTemplatePreset(template) {
   removeRetiredFields(template);
   if(template.category) template.category=canonicalCategoryName(template.category);
   applyRequiredDefaults(template);
+  if(typeof updateDescriptionFromDirectory === "function") updateDescriptionFromDirectory(template);
   updateBrandFromTitle(template);
   updateStrainFromTitle(template);
   if(template.inferCategoryFromTitle && categoryFromTitle(template.name)) {
@@ -185,9 +192,9 @@ const FIELD_DEFS = [
   // ---- Select-style dropdowns ----
   { key: "category",           label: "Category",            type: "select", testid: "product-detail_sr_category", required: true,
     options: ["Flower (New Category)", "Ground flower (New Category)", "Preroll Packs (New Category)", "Prerolls (New Category)",
-              "Carts (New Category)", "Disposable Vapes (New Category)", "Edibles (New Category)", "Drinks (New Category)"] },
+              "Carts (New Category)", "Disposable Vapes (New Category)", "Edibles (New Category)", "Drinks (New Category)", "Concentrate"] },
   { key: "regulatoryCategory", label: "Regulatory category", type: "select", testid: "product-detail_regulatory_category", required: true,
-    options: ["Cannabis Flower Products", "Oil for Vaporization", "Gel-based foods", "Solid chocolates", "Beverages"] },
+    options: ["Cannabis Flower Products", "Oil for Vaporization", "Gel-based foods", "Solid chocolates", "Beverages", "Resin"] },
   { key: "type",               label: "Type",                type: "select", testid: "product-detail_sr_type", required: true, fixed: "Quantity" },
   { key: "defaultUnit",        label: "Default unit",        type: "select", testid: "product-detail_sr_default-unit", required: true, fixed: "Quantity" },
   { key: "thcUnit",            label: "THC unit",            type: "select", options: ["mg", "%"], inlineWith: "thc",

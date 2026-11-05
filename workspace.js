@@ -24,6 +24,14 @@ const COMPLETION_FIELDS = ["thc", "tags", "cost", "medBasePrice"];
 const ENTRY_FILTERS = new Set(["all", "unsaved", "unfinished", "required", ...COMPLETION_FIELDS, "onlineDescription"]);
 let lastBulkEdit = null;
 let strainEditorMounted=false;
+document.addEventListener("strainDescriptionCacheReady",()=>{
+  if(!initialized)return;let changed=false;
+  for(const row of rows.values()) {
+    const before=row.values.onlineDescription;updateDescriptionFromDirectory(row.values);
+    if(before!==row.values.onlineDescription){refreshValues(row);if(row.tab === "changes")renderPanel(row);changed=true;}
+  }
+  if(changed){updateMetrics();scheduleSave();}
+});
 let thcListPreview = null;
 function updateUndoButton() {
   $w("undoBulk").disabled=saving || !lastBulkEdit;
@@ -201,7 +209,7 @@ $w("fillDirectoryDescriptions").addEventListener("click",async()=>{
     for(const row of targets) {
       if(row.values.onlineDescription.trim()){kept++;continue;}
       const match=findStrainDescription(row.values,directory);if(!match){unmatched++;continue;}
-      row.values.onlineDescription=match.description;refreshValues(row);if(row.tab === "changes")renderPanel(row);
+      row.values.onlineDescription=match.description;row.values.inferDescriptionFromDirectory=true;refreshValues(row);if(row.tab === "changes")renderPanel(row);
     }
     const changed=rememberBulkEdit(before,"using saved strain descriptions");updateMetrics();scheduleSave();
     setWorkspaceStatus(`${changed} descriptions filled; ${kept} existing descriptions kept; ${unmatched} without a unique match. Review, then save templates.`);
@@ -377,7 +385,7 @@ function renderPanel(row) {
     const copy = node("button", "Copy strain name + type"); copy.dataset.action = "copy";
     panel.append(copy, node("p", "Paste the reviewed description.", "sub"), fieldControl(FIELD_MAP.onlineDescription,row.values));
     panel.append(node("div", `${row.values.onlineDescription.length}/2500 characters`, "description-count sub"));
-    createStrainDescriptionControls(panel,()=>({...row.values}),description=>{row.values.onlineDescription=description;refreshValues(row);updateMetrics();scheduleSave();},setWorkspaceStatus);
+    createStrainDescriptionControls(panel,()=>({...row.values}),description=>{row.values.onlineDescription=description;row.values.inferDescriptionFromDirectory=true;refreshValues(row);updateMetrics();scheduleSave();},setWorkspaceStatus);
   } else if (row.tab === "changes") {
     panel.append(node("p", "Compared with starting values. Blank fields are skipped during autofill.", "sub"));
     const table = node("table", "", "diff-table"); const head = table.createTHead().insertRow();
@@ -457,7 +465,7 @@ function renderSaveConflict(row) {
     const table=node("table","","diff-table"),head=table.createTHead().insertRow();
     for(const label of ["Field","My edits","Saved value"]) head.append(node("th",label));
     const body=table.createTBody();
-    const flagLabels={copyToLocation:"Copy to Location details",categoryPresetUnlocked:"Unlock category presets",inferGramsFromTitle:"Weight from name",inferCategoryFromTitle:"Category from title",inferStrainFromTitle:"Strain from title",inferTagsFromTitle:"Strain tag from title",inferBrandFromTitle:"Brand from title"};
+    const flagLabels={copyToLocation:"Copy to Location details",categoryPresetUnlocked:"Unlock category presets",inferGramsFromTitle:"Weight from name",inferCategoryFromTitle:"Category from title",inferStrainFromTitle:"Strain from title",inferTagsFromTitle:"Strain tag from title",inferBrandFromTitle:"Brand from title",inferDescriptionFromDirectory:"Description from directory"};
     for(const key of fields) {
       const tr=body.insertRow();
       const display=(values)=>WORKSPACE_FLAGS.includes(key) ? (values[key] ? "Yes" : "No") : String(values[key] ?? "") || "Blank";
@@ -836,6 +844,7 @@ $w("openFull").addEventListener("click",async()=>{try{await openProductWorkspace
 
 async function boot() {
   await categoryPairingsReady;
+  await loadStrainDirectory().catch(()=>{});
   [templates,directory,learned,recent]=await Promise.all([read("templates"),read("brandDirectory"),read("options"),read("lastBulkBatch")]);
   templates ||= {};directory=(directory || []).filter((entry)=>isSelectableVendor(entry.vendor));learned ||= {};
   renderDirectory();renderSavedChoices();refreshTagOptions();updateApplyChoices();

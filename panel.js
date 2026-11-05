@@ -107,14 +107,32 @@ function renderStatus() {
 }
 const setStatus = (text) => { statusEl.textContent = text; renderStatus(); };
 status.set = setStatus;
-chrome.storage.local.get("statusMin").then((r) => {
-  statusMinimized = !!r.statusMin;
-  renderStatus();
+let panelPreferenceChanged=false,statusPreferenceChanged=false,panelSettingWrites=Promise.resolve();
+function panelStorageFailure(error) {
+  const message=/extension context invalidated/i.test(String(error?.message || error))
+    ? "The extension was updated. Refresh this Dutchie tab to reconnect it."
+    : "The panel preference could not be saved or loaded. Try again.";
+  pill.title=message;setStatus(message);
+}
+function persistPanelPreference(key,value) {
+  panelSettingWrites=panelSettingWrites.then(async()=>{
+    try {await chrome.storage.local.set({[key]:value});pill.title="";}
+    catch(error){panelStorageFailure(error);}
+  });
+  return panelSettingWrites;
+}
+async function restorePanelPreference(key,apply) {
+  try {const stored=await chrome.storage.local.get(key);apply(stored[key]);}
+  catch(error){panelStorageFailure(error);}
+}
+restorePanelPreference("statusMin",value=>{
+  if(!statusPreferenceChanged){statusMinimized=!!value;renderStatus();}
 });
 $s("statusToggle").__onPress = () => {
   statusMinimized = !statusMinimized;
+  statusPreferenceChanged=true;
   renderStatus();
-  chrome.storage.local.set({ statusMin: statusMinimized });
+  persistPanelPreference("statusMin",statusMinimized);
 };
 
 let templates = {};
@@ -154,15 +172,14 @@ function makeButton(text, onPress, parent, cls) {
 
 // ---------- Minimize to a pill (remembered between visits) ----------
 function setMinimized(value) {
+  panelPreferenceChanged=true;
   minimized = value;
   box.hidden = value;
   pill.hidden = !value;
-  chrome.storage.local.set({ panelMin: value });
+  persistPanelPreference("panelMin",value);
 }
-chrome.storage.local.get("panelMin").then((r) => {
-  minimized = !!r.panelMin;
-  box.hidden = minimized;
-  pill.hidden = !minimized;
+restorePanelPreference("panelMin",value=>{
+  if(!panelPreferenceChanged){minimized=!!value;box.hidden=minimized;pill.hidden=!minimized;}
 });
 $s("hideBtn").__onPress = () => setMinimized(true);
 pill.__onPress = () => setMinimized(false);
@@ -205,7 +222,7 @@ async function loadTemplates() {
   templates = stored.templates || {};
   renderTemplates();
 }
-loadTemplates();
+loadTemplates().catch(panelStorageFailure);
 document.addEventListener("categoryPairingsChanged",() => {resetSteps();renderStep();});
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.templates) {

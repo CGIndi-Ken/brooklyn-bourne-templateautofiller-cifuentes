@@ -5,9 +5,51 @@ function strainNode(tag,text="",className="") {
 const STRAIN_DIRECTORY_TYPE_LABELS={"":"Unspecified",S:"Sativa",H:"Hybrid",I:"Indica","S/H":"Sativa dominant hybrid","I/H":"Indica dominant hybrid"};
 async function loadStrainDirectory() {
   await ensureStrainDirectory();
-  return validateStrainDirectory((await chrome.storage.local.get("strainDirectory")).strainDirectory || []);
+  const directory=validateStrainDirectory((await chrome.storage.local.get("strainDirectory")).strainDirectory || []);
+  setStrainDirectoryCache(directory);
+  return directory;
 }
 function announceStrainDirectoryChange() {document.dispatchEvent(new Event("strainDirectoryUpdated"));}
+function createStrainListImporter(root,onSaved) {
+  const tools=strainNode("details","","strain-list-tools"),summary=strainNode("summary","Paste a strain list");
+  const label=strainNode("label","Strains, types and descriptions");label.htmlFor="strainListPaste";
+  const input=strainNode("textarea");input.id="strainListPaste";input.rows=6;input.placeholder="Animal Face (I) - Description…\nRuntz (H) - Description…";input.setAttribute("aria-describedby","strainListHelp strainListStatus");
+  const hint=strainNode("p","Start each entry with Name (type) - description. Descriptions can wrap across lines. Types: S, H, I, S/H, I/H.","sub");hint.id="strainListHelp";
+  const replaceLabel=strainNode("label","","check"),replace=strainNode("input");replace.id="replaceStrainDescriptions";replace.type="checkbox";replaceLabel.append(replace,document.createTextNode("Replace existing descriptions"));
+  const actions=strainNode("div","","field-actions"),preview=strainNode("button","Preview strains"),apply=strainNode("button","Add strains","gold-button");preview.id="previewStrainList";apply.id="addStrainList";apply.disabled=true;preview.type=apply.type="button";actions.append(preview,apply);
+  const status=strainNode("p","","sub"),list=strainNode("ul","","strain-list-preview");status.id="strainListStatus";status.setAttribute("role","status");list.hidden=true;
+  tools.append(summary,label,input,hint,replaceLabel,actions,status,list);root.append(tools);
+  let snapshot=null,previewDirectory="",busy=false;
+  const report=(message,error=false)=>{status.textContent=message;status.dataset.error=String(error);};
+  const signature=()=>JSON.stringify([input.value,replace.checked]);
+  function invalidate(){snapshot=null;apply.disabled=true;list.hidden=true;list.replaceChildren();report("");}
+  input.addEventListener("input",invalidate);replace.addEventListener("change",invalidate);
+  function describe(plan){return `${plan.added} new; ${plan.updated} updated; ${plan.skipped} duplicates skipped; ${plan.conflicts} existing descriptions kept.`;}
+  preview.addEventListener("click",async()=>{
+    if(busy)return;invalidate();const current=signature();busy=true;preview.disabled=true;
+    try {
+      const directory=await loadStrainDirectory();if(current!==signature())return;
+      const plan=planStrainList(input.value,directory,replace.checked);snapshot=current;previewDirectory=JSON.stringify(directory);
+      list.replaceChildren(...plan.items.slice(0,50).map(item=>strainNode("li",`${item.name} (${item.type}) · ${item.action}`)));list.hidden=false;
+      report(describe(plan)+(plan.items.length>50 ? " First 50 entries shown." : ""));apply.disabled=!(plan.added || plan.updated);
+    }catch(error){report(error.message,true);}finally{busy=false;preview.disabled=false;}
+  });
+  apply.addEventListener("click",async()=>{
+    if(busy || snapshot!==signature())return;
+    const text=input.value,replaceExisting=replace.checked,current=signature();busy=true;preview.disabled=apply.disabled=true;report("Adding strains…");
+    try {
+      let plan;
+      const directory=await mutateStrainDirectory(latest=>{
+        if(replaceExisting && JSON.stringify(latest)!==previewDirectory){snapshot=null;throw new Error("The directory changed. Preview again before replacing descriptions.");}
+        plan=planStrainList(text,latest,replaceExisting);return plan.directory;
+      });
+      onSaved(directory);announceStrainDirectoryChange();
+      const newer=current!==signature();
+      if(!newer){if(!plan.conflicts)input.value="";invalidate();}
+      report(`Saved. ${describe(plan)}${newer ? " Your newer paste is still here; preview it before adding." : plan.conflicts ? " Paste kept so you can resolve the different descriptions." : ""}`);
+    }catch(error){report(error.message,true);apply.disabled=snapshot!==signature();}finally{busy=false;preview.disabled=false;}
+  });
+}
 function createStrainDescriptionControls(container,getProduct,applyDescription,report) {
   const actions=strainNode("div","","strain-description-actions");
   const use=strainNode("button","Use saved strain description"),remember=strainNode("button","Remember strain description");
@@ -61,6 +103,8 @@ function createStrainDirectoryEditor(root) {
   const actions=strainNode("div","","field-actions"),save=strainNode("button","Save strain","gold-button"),remove=strainNode("button","Delete strain");save.id="saveStrain";remove.id="deleteStrain";remove.disabled=true;actions.append(save,remove);editorBody.append(actions);
   const state=strainNode("p","","sub");state.id="directoryStrainState";state.setAttribute("role","status");editorBody.append(state);
   const status=strainNode("p","","sub");status.id="strainDirectoryStatus";status.setAttribute("role","status");root.append(heading,intro,grid,status);
+  const importer=strainNode("section","","card strain-import-card");root.insertBefore(importer,grid);
+  createStrainListImporter(importer,directory=>{reloadGeneration++;records=directory;render();});
   function report(message,error=false){status.textContent=message;status.dataset.error=String(error);}
   function dirty(){return name.value!==(baseline?.name || "") || type.value!==(baseline?.type || "") || description.value!==(baseline?.description || "");}
   function updateState(){state.textContent=dirty() ? "Unsaved changes · Save strain (Ctrl+S)" : baseline ? "Saved" : "New strain";}
@@ -129,5 +173,10 @@ function createStrainDirectoryEditor(root) {
   reload().catch(error=>report(`Directory could not load: ${error.message}`,true));
 }
 
-// Seed once from saved template memory, without delaying editor startup.
-ensureStrainDirectory().catch(()=>{});
+// Cache lookups once so typing titles never waits for storage reads.
+async function refreshStrainDescriptionCache() {
+  await loadStrainDirectory();document.dispatchEvent(new Event("strainDescriptionCacheReady"));
+}
+refreshStrainDescriptionCache().catch(()=>{});
+document.addEventListener("strainDirectoryUpdated",()=>refreshStrainDescriptionCache().catch(()=>{}));
+chrome.storage.onChanged.addListener((changes,area)=>{if(area==="local" && changes.strainDirectory) refreshStrainDescriptionCache().catch(()=>{});});

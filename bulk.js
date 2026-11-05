@@ -64,6 +64,7 @@ function buildBulkTemplates(text, shared, existing) {
     // These are product-specific and must not leak from the shared template.
     const data = { ...shared, ...NEW_TEMPLATE_DEFAULTS, name, strain, onlineDescription, externalId: "", gramsConcentration:gramsFromTitle(name), inferGramsFromTitle:true, inferCategoryFromTitle:true };
     data.inferStrainFromTitle=!strain;data.inferTagsFromTitle=true;
+    data.inferDescriptionFromDirectory=!onlineDescription;
     data.inferBrandFromTitle=shared.inferBrandFromTitle === true || !String(shared.brand || "").trim();
     updateStrainFromTitle(data,shared.name);
     applyTemplatePreset(data);

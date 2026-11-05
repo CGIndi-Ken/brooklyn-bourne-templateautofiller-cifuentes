@@ -53,9 +53,10 @@ async function main(){
   await popup.locator('[data-popup-view="strains"]').click();const frame=popup.frameLocator('#strainsWorkspace');await frame.locator('#strainDirectorySearch').waitFor();
   assert.equal(await frame.locator('.strain-directory-item').count(),3);
   await popup.locator('[data-popup-view="template"]').click();await popup.locator('#f_name').fill('Brand | Runtz | 1g (H)');
-  assert.equal(await popup.locator('#f_onlineDescription').inputValue(),'','Matching a title alone never overwrites or silently adds descriptions');
+  assert.equal(await popup.locator('#f_onlineDescription').inputValue(),curated,'A matching title immediately uses the directory');
   await popup.getByRole('button',{name:'Use saved strain description',exact:true}).click();await popup.waitForFunction(()=>document.getElementById('f_onlineDescription').value.startsWith('Reviewed Runtz'));
   assert.equal(await popup.locator('#f_onlineDescription').inputValue(),curated);
+  await popup.locator('#f_onlineDescription').fill(curated);
   await popup.locator('#f_name').fill('Brand | Unknown strain | 3.5g (H)');await popup.getByRole('button',{name:'Use saved strain description',exact:true}).click();await popup.waitForFunction(()=>document.getElementById('descriptionStatus').textContent.includes('No unambiguous'));assert.equal(await popup.locator('#f_onlineDescription').inputValue(),curated,'Missing directory matches leave existing descriptions intact');
   await popup.locator('#f_name').fill('Brand | Runtz | 3.5g (S)');await popup.getByRole('button',{name:'Use saved strain description',exact:true}).click();await popup.waitForFunction(()=>document.getElementById('descriptionStatus').textContent.includes('No unambiguous'));assert.equal(await popup.locator('#f_onlineDescription').inputValue(),curated,'Lookup never substitutes a different known strain type');
   await popup.locator('#f_name').fill('Brand | Runtz | 1g (H)');
@@ -73,7 +74,7 @@ async function main(){
   await page.locator('[data-view="products"]').click();
   const names=['Shown A | Runtz | 1g (H)','Shown B | Blue Dream | 3.5g (S)','Shown C | Jealousy | 3.5g (I)','Hidden | Runtz | 3.5g (I)','Shown D | Runtz | 7g (H)'];
   await page.locator('#quickNames').fill(names.join('\n'));await page.locator('#addNames').click();assert.equal(await page.locator('.entry-card').count(),5);
-  await page.evaluate(()=>{const items=[...rows.values()];items[2].values.onlineDescription='Keep manual paragraph.';refreshValues(items[2]);items[4].selected=false;items[4].element.querySelector('[data-action="select"]').checked=false;updateMetrics();});
+  await page.evaluate(()=>{const items=[...rows.values()];for(const row of items){editProductField(row.values,'onlineDescription','');refreshValues(row);}editProductField(items[2].values,'onlineDescription','Keep manual paragraph.');refreshValues(items[2]);items[4].selected=false;items[4].element.querySelector('[data-action="select"]').checked=false;updateMetrics();});
   await page.locator('#entrySearch').fill('Shown');await page.locator('#fillDirectoryDescriptions').click();await page.waitForFunction(()=>document.getElementById('workspaceStatus').textContent.includes('2 descriptions filled'));
   assert.deepEqual(await page.evaluate(()=>[...rows.values()].map(row=>row.values.onlineDescription)),[curated,descriptions.dream,'Keep manual paragraph.','','']);
   await page.locator('#undoBulk').click();assert.deepEqual(await page.evaluate(()=>[...rows.values()].map(row=>row.values.onlineDescription)),['','','Keep manual paragraph.','','']);

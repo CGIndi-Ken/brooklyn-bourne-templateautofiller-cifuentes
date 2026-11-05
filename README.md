@@ -1,5 +1,21 @@
 # Brooklyn Bourne Autofiller
 
+## Paste a strain list (1.3.0)
+
+In **Strain directory**, expand **Paste a strain list**. Paste entries such as `Animal Face (I) - Description…`, with each strain starting on a new line. Descriptions may wrap across lines or contain blank paragraphs. Types S, H, I, S/H and I/H are accepted (also SH/IH); hyphen, en dash and em dash separators work. Click **Preview strains**, then **Add strains** to save the list directly to the directory.
+
+The complete list is validated before saving: names, valid types and nonblank descriptions of at most 2500 characters are required. Identical duplicates are skipped; conflicting duplicates within the same paste must be resolved. Existing descriptions are kept by default; blank saved descriptions can be filled. Check **Replace existing descriptions** to replace conflicting saved text. The preview shows what will be added, updated or kept. Saving rechecks the latest directory under its write lock, and a failed save keeps the paste for retry. New directory entries immediately become available to automatic title-description filling.
+
+## Concentrate title rules (1.2.0)
+
+Title endings containing cured resin, live resin, resin, sugar, honeycomb, badder, budder, diamond(s), hash, RSO, or concentrate(s) use **Concentrate → Resin → Concentrate/Extract - Each**. For example, `Dank | Runtz | 1g cured resin` fills that pairing and grams/concentration `1`. Matching is case-insensitive and uses whole words in the final section after a recognized weight. Resin wording in an explicit cart, AIO, edible, flower or pre-roll designation keeps that product's existing category rules. Brand/strain names do not choose a concentrate category. Manual category overrides and remembered custom title rules remain available.
+
+Panel settings fix (1.1.1): minimize/status preference reads and writes now handle failures. An invalidated extension context prompts you to refresh the Dutchie tab. Rapid preference changes save in order; late startup reads cannot undo a newer click.
+
+## Automatic directory descriptions (1.1.0)
+
+Entering a product title now immediately fills its matching strain-directory description in the template maker and bulk editor. Matching uses the actual strain name and compatible type. Automatic descriptions change with the title and clear when no unique match exists. Typing or clearing a description manually protects it from later title changes; **Use saved strain description** opts back in. Existing nonblank descriptions and pasted descriptions remain manual. Blank legacy templates can use directory matches. This choice travels with drafts and JSON backups. Directory lookups use a shared in-memory cache, without a storage read on each keystroke.
+
 ## Version 1.0.0
 
 The Version 1 release includes title-based brand, weight, strain and category filling; ordered THC pasting; bulk editing; reusable strain descriptions; vendor/brand directories; and Patterned and Effects themes. It includes the latest search and unsaved-edit protections.
@@ -22,7 +38,7 @@ Open **Strain directory** from the template maker or workspace. On first load, e
 
 Use **+ New strain** and **Save strain** to maintain entries; search by name or type. **Collect descriptions from saved templates** adds later saved descriptions without overwriting existing text. Explicit deletion stays deleted until you collect again. Changing a saved directory entry does not rewrite existing templates.
 
-In each editor's Online description section, **Use saved strain description** fills a matching saved description and **Remember strain description** adds the current paragraph to the directory. Matching uses strain name and type; ambiguous or incompatible variants are not guessed. Reusing a description is an explicit action. In Bulk editor, **Fill blank descriptions from strain directory** affects checked, shown products only, keeps existing descriptions and supports **Undo bulk update**. Review and save templates to persist product changes. The directory travels with template JSON backups; importing keeps existing curated descriptions.
+New automatic entries fill matching directory descriptions from the title. In each editor's Online description section, **Use saved strain description** also replaces a manual paragraph with the matching saved description and restores automatic mode; **Remember strain description** adds the current paragraph to the directory. Matching uses strain name and type; ambiguous or incompatible variants are not guessed. In Bulk editor, **Fill blank descriptions from strain directory** affects checked, shown products only, keeps existing descriptions and supports **Undo bulk update**. Review and save templates to persist product changes. The directory travels with template JSON backups; importing keeps existing curated descriptions.
 
 Autofiller search now isolates typing events from the host page's keyboard shortcuts. A native typing regression covers this interaction, in addition to existing search/filter checks.
 
@@ -86,7 +102,7 @@ Expand **Remember title category rules** in the popup's category section or Bulk
 
 The popup and Bulk editor now share spreadsheet paste handling. Paste Name, optional Strain, and optional Description as tab-separated columns. A Name / Strain / Description header is optional. Quoted cells can contain tabs, line breaks and doubled quotes. The complete paste is validated before creating anything; invalid rows leave your input intact.
 
-In Bulk editor, **Preview products** lists new names and counts duplicates. **Add products** rechecks the paste and skips names already in the workspace or saved templates (exact, case-sensitive matching). Saved products and existing edits are preserved. Use Load saved templates to edit existing products. Added products remain drafts; save them when ready. Product-specific descriptions and strains come only from their pasted row. Prices start blank and grams follow each name as before. Adding new entries clears the entry filter so the new products are visible.
+In Bulk editor, **Preview products** lists new names and counts duplicates. **Add products** rechecks the paste and skips names already in the workspace or saved templates (exact, case-sensitive matching). Saved products and existing edits are preserved. Use Load saved templates to edit existing products. Added products remain drafts; save them when ready. Pasted descriptions and strains take priority; blank descriptions can use a matching strain-directory entry and strain types can follow the title. Prices start blank and grams follow each name as before. Adding new entries clears the entry filter so the new products are visible.
 
 The Load saved templates search now matches product/template names, vendor, brand, strain and category. Multiple words narrow the search together; checked choices survive changes to the search. **Select matches** checks the current results while keeping earlier selections. **Clear selection** unchecks all choices, including hidden results.
 
@@ -125,7 +141,7 @@ The popup has **Templates**, **Bulk editor**, and **Brand directory** tabs. The 
 
 Use **Search entries** to find products by product/template name, vendor, brand, or strain. **Collapse all / Expand all** compact or restore the entire batch; each entry also has **Minimize / Expand**. Search and collapsed states are remembered in the workspace draft. While searching, Select all and shared edits affect only shown entries; Save all still saves all entries, including hidden ones.
 
-In Bulk editor you can load existing saved templates, edit multiple products together, select entries and apply one field to them, or open the batch in a separate larger window. Each entry has its own **Details**, **Online description**, and **Changes** tabs. Descriptions are never copied to another new product automatically. **Save all templates** saves edited entries and preserves unrelated templates. Editing an existing product's Name keeps its original saved template key. A duplicate new template name is rejected.
+In Bulk editor you can load existing saved templates, edit multiple products together, select entries and apply one field to them, or open the batch in a separate larger window. Each entry has its own **Details**, **Online description**, and **Changes** tabs. Descriptions are looked up by matching strain name and type rather than inherited from shared product settings. **Save all templates** saves edited entries and preserves unrelated templates. Editing an existing product's Name keeps its original saved template key. A duplicate new template name is rejected.
 
 Saving compares field values, so stored field order and missing blank/default fields cannot cause false conflicts. Independent edits merge automatically. If the same field has different edits in the saved template and your workspace, the other entries still save. That entry shows **Keep my edits** and **Use saved values**, with both versions visible. Either choice resolves only the conflicting values and keeps your other edits; click **Save all templates** to finish. Drafts retain unresolved edits across reloads. The separate **Reload** button deliberately discards that entry's local changes after confirmation; it is never required to resolve a save conflict.
 
@@ -139,7 +155,7 @@ The main template editor suggests that vendor's brands. Select a vendor and chec
 
 Set the shared form values, then expand **Bulk template creation**. Paste one full product Name per line, click **Preview templates**, and then **Create templates**. Each line becomes a saved template named after the product. Existing template names and duplicate lines are skipped, preserving existing data.
 
-You can also paste up to three tab-separated columns from a spreadsheet, with an optional header: **Name**, **Strain**, **Description**. Strain and description are blank unless supplied in that row. External ID is blank for each new template. Cost and base price start **blank** for new templates, including bulk creation, copies and new brand entries. Grams/concentration is inferred separately from each product name when a recognized weight is present. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
+You can also paste up to three tab-separated columns from a spreadsheet, with an optional header: **Name**, **Strain**, **Description**. Strain type and directory description can follow the title; explicit row values take priority. External ID is blank for each new template. Cost and base price start **blank** for new templates, including bulk creation, copies and new brand entries. Grams/concentration is inferred separately from each product name when a recognized weight is present. Other editable fields are shared from the form, including category, THC, vendor, brand, inventory settings. Enter product-specific pricing and grams after creation. Review these shared settings before creating templates. Bulk input is remembered in the popup draft.
 
 Type and Default unit are locked to **Quantity** in the editor. Full fills always apply Quantity regardless of old template values; each selection is verified and retried once if it does not stick. Any remaining failure appears in the fill status.
 
